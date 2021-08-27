@@ -1,1 +1,4 @@
-pytorch_model.py
+# ignore folders for now
+data/**
+figures/**
+outputs/**
