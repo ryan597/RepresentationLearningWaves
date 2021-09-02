@@ -3,6 +3,4 @@ data/**
 figures/**
 outputs/**
 
-
 temp_file.py
-settings.json
