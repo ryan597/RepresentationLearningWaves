@@ -10,6 +10,7 @@ dependencies:
   - h5py
   - matplotlib
   - numpy
+  - opencv
   - pillow
   - pip
   - python=3.6
