@@ -1,6 +1,6 @@
 # ignore folders for now
 data/**
-figures/**
 outputs/**
+configs/**
 
-temp_file.py
+__pycache__/**
