@@ -1,22 +1,71 @@
-################################################################################
+###############################################################################
 
 # Written by Ryan Smith
 # ryan.smith@ucdconnect.ie
 
-################################################################################
+###############################################################################
 
+# Python Imports
 import os
+import cv2
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
-import argparse
-from PIL import Image
+import seaborn as sns
 
+# Pytorch imports
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
 
-################################################################################
+# Sklearn imports
+# from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+
+if torch.cuda.is_available():
+    DEVICE = 'cuda'
+else:
+    DEVICE = 'cpu'
+
+
+###############################################################################
+# Data Pipeline
+
+class InputImages(Dataset):
+    def __init__(self, path, transform=None):
+        self.file_path = path
+        self.files = glob.glob(self.file_path+'/*.png') +\
+            glob.glob(self.file_path+'/*.jpg')
+        self.transform = transform
+        self.dataset_len = len(self.files)
+
+    def __getitem__(self, index):
+        image1 = self.fetch_image(index)
+        image2 = self.fetch_image(index+1)
+        image3 = self.fetch_image(index+2)
+
+        input_images = np.array([image1, image2])
+
+        return [input_images, image3]
+
+    def __len__(self):
+        return self.dataset_len
+
+    def fetch_image(self, index):
+        return cv2.imread(self.files[index], cv2.IMREAD_GRAYSCALE)
+
+
+def get_transform(image_size):
+    return None
+
+
+def load_data(path, image_size, batch_size=1, shuffle=True):
+    transform = get_transform(image_size=image_size)
+    dataset = InputImages(path, transform)
+    dataloader = DataLoader(dataset, batch_size=batch_size,
+                            shuffle=shuffle, num_workers=8)
+    return dataloader
 
 
 def wave_sort(path, I1, wave=[]):
@@ -29,12 +78,16 @@ def wave_sort(path, I1, wave=[]):
     return wave
 
 
+###############################################################################
+# Training Loop
+
 def train_model(model, train, valid, epochs, learning_rate, verbose=1):
-    history = {"loss":[], "val_loss":[], "epoch":[], "lr":[]}
+    history = {"loss": [], "val_loss": [], "epoch": [], "lr": []}
 
     criterion = nn.L1Loss().to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*3, eta_min=1e-7)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*3,
+                                                     eta_min=1e-7)
 
     for i in range(epochs):
         history["epoch"].append(i+1)
@@ -86,7 +139,8 @@ def train_model(model, train, valid, epochs, learning_rate, verbose=1):
     return history
 
 
-def get_model_losses(valid, label, spill_model, plunge_model, nonbreaking_model):
+def get_model_losses(valid, label,
+                     spill_model, plunge_model, nonbreaking_model):
     preds = []
     errors = []
     actual = []
@@ -114,6 +168,40 @@ def get_model_losses(valid, label, spill_model, plunge_model, nonbreaking_model)
     return preds, errors, actual
 
 
+def evaluate_model(valid, model, savefile=None):
+    with torch.no_grad():
+        for i, (batch_pair, batch_nxt) in enumerate(valid):
+            fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5,
+                                                          figsize=(15, 15))
+            for j, img_pair in enumerate(batch_pair):
+                ax1.imshow(img_pair[0])
+                ax1.axis('off')
+                ax2.imshow(img_pair[1])
+                ax2.axis('off')
+                ax3.imshow(batch_nxt[0][0])
+                ax3.axis('off')
+                pr = model(batch_pair.to(DEVICE))[0][0].detach()\
+                    .to('cpu').numpy()
+                pm = (pr - np.min(pr))/(np.max(pr)-np.min(pr))
+                ax4.imshow(pm)
+                ax4.axis('off')
+                bnxt = ((batch_nxt[0][0].numpy() -
+                        np.min(batch_nxt[0][0].numpy())) /
+                        (np.max(batch_nxt[0][0].numpy()) -
+                        np.min(batch_nxt[0][0].numpy())))
+                ax5.imshow(1 - np.abs(img_pair[1] - bnxt), cmap='gray')
+                ax5.axis('off')
+                if savefile is not None:
+                    plt.savefig(f"{savefile}_{i}")
+                fig.show()
+                break
+            if i == 4:
+                break
+
+
+###############################################################################
+# Results
+
 def plot_history(history):
     plt.plot(history["epoch"], history["loss"], label="training loss")
     plt.plot(history["epoch"], history["val_loss"], label="validation loss")
@@ -125,33 +213,6 @@ def plot_history(history):
     plt.show()
 
 
-def evaluate_model(valid, model, savefile=None):
-    with torch.no_grad():
-        for i, (batch_pair, batch_nxt) in enumerate(valid):
-            fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5, figsize=(15,15))
-            for j, img_pair in enumerate(batch_pair):
-                ax1.imshow(img_pair[0])
-                ax1.axis('off')
-                ax2.imshow(img_pair[1])
-                ax2.axis('off')
-                ax3.imshow(batch_nxt[0][0])
-                ax3.axis('off')
-                pr = model(batch_pair.to(DEVICE))[0][0].detach().to('cpu').numpy()
-                pm = (pr - np.min(pr))/(np.max(pr)-np.min(pr))
-                ax4.imshow(pm)
-                ax4.axis('off')
-                bnxt = (batch_nxt[0][0].numpy()-np.min(batch_nxt[0][0].numpy()))/(np.max(batch_nxt[0][0].numpy())-np.min(batch_nxt[0][0].numpy()))
-                #bnxt = (img_pair[1].numpy()-np.min(img_pair[1].numpy()))/(np.max(img_pair[1].numpy())-np.min(img_pair[1].numpy()))
-                ax5.imshow(1 - np.abs(img_pair[1] - bnxt), cmap='gray')
-                ax5.axis('off')
-                if savefile != None:
-                    plt.savefig(f"{savefile}_{i}")  # plunge_model.plot_history()
-                fig.show()
-                break
-            if i == 4:
-                break
-
-
 def get_confusion_matrix(val_predictions, val_actual):
     labels = np.argmax(val_actual, axis=1)
     pre = np.argmax(val_predictions, axis=1)
@@ -161,7 +222,8 @@ def get_confusion_matrix(val_predictions, val_actual):
     sns.set(font_scale=2)
     sns.heatmap(cm,
                 annot=True,
-                cmap=sns.cubehelix_palette(dark=0, light=1, as_cmap=True), cbar=False)
+                cmap=sns.cubehelix_palette(dark=0, light=1, as_cmap=True),
+                cbar=False)
 
     classes = ["spill", "plunge", "nonbreaking"]
     yclasses = ['true '+t for t in classes]
