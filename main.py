@@ -7,6 +7,7 @@
 
 # Python imports
 import argparse
+import json
 # import seaborn as sns
 from os.path import exists
 
@@ -33,12 +34,13 @@ if __name__ == '__main__':
     IMAGE_SIZE = 300
 
     # config variables
-    with open("configs/" + args.config + ".json", 'r') as config:
-        model_name = config.model_name
-        weights_path = config.weights_path
-        train_path = config.train_path
-        results_path = config.results_path
-        imaug = config.imaug
+    with open("configs/" + args.config + ".json", 'r') as config_json:
+        config = json.load(config_json)
+    model_name = config["model_name"]
+    weights_path = config["weights_path"]
+    train_path = config["train_path"]
+    results_path = config["results_path"]
+    imaug = config["imaug"]
 
     # Loading datasets
     train_data = utils.load_data(train_path, IMAGE_SIZE)
