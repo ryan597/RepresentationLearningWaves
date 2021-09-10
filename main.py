@@ -33,7 +33,7 @@ if __name__ == '__main__':
     IMAGE_SIZE = 300
 
     # config variables
-    with open(args.config, 'r') as config:
+    with open("configs/" + args.config + ".json", 'r') as config:
         model_name = config.model_name
         weights_path = config.weights_path
         train_path = config.train_path
