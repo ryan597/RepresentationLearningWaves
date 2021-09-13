@@ -47,7 +47,7 @@ class InputImages(Dataset):
 
         input_images = np.array([image1, image2])
 
-        return [input_images, image3]
+        return input_images, image3
 
     def __len__(self):
         return self.dataset_len
@@ -76,6 +76,25 @@ def wave_sort(path, I1, wave=[]):
             wave = wave_sort(path, I2, wave)
             return wave
     return wave
+
+
+def show_samples(dataloader, no_samples=5):
+    fig, ax = plt.subplots(no_samples,
+                           3,
+                           gridspec_kw={'wspace': 0, 'hspace': 0},
+                           subplot_kw={'xticks': [], 'yticks': []})
+
+    for i, (samples, truth) in enumerate(dataloader):
+        ax[i, 0].imshow(samples[0, 0])
+        ax[i, 1].imshow(samples[0, 1])
+        ax[i, 2].imshow(truth[0])
+
+        if i == (no_samples - 1):
+            break
+    fig.suptitle("Sample images from dataset")
+    # fig.supxlabel("1st, 2nd and 3rd Image from Sequence")
+    # fig.supylabel("Samples")
+    plt.show()
 
 
 ###############################################################################
