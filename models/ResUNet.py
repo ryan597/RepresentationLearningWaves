@@ -47,7 +47,19 @@ class ResNetBasicBlock(nn.Module):
         return nn.ReLU(x)
 
 
-class ResNetUnet(nn.Module):
+class ResNetLayer(nn.Module):
+    def __init__(self, in_channels, out_channels, n=1, *args, **kwargs):
+        self.blocks = nn.Sequential(
+            ResNetBasicBlock(in_channels, out_channels)
+        )
+
+    def forward(self, x):
+        y = self.blocks(x)
+        x = torch.cat((y, x), dim=1)
+        return x
+
+
+class ResUNet(nn.Module):
     def __init__(self):
         pass
 
