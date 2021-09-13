@@ -16,7 +16,7 @@ import torch
 
 # My imports
 import utils
-import models
+from models.ResUNet import ResUNet
 
 if torch.cuda.is_available():
     DEVICE = 'cuda'
@@ -54,6 +54,8 @@ if __name__ == '__main__':
 
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
+
+    # utils.show_samples(train_data)
 
     # Training model
 

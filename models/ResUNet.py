@@ -5,11 +5,17 @@
 
 ###############################################################################
 
+# TO DO
+# Fix encoder decoder
+# issues with channels
+
+
+
 import torch
 import torch.nn as nn
 
 
-class ResNetBasicBlock(nn.Module):
+class BasicBlock(nn.Module):
     """
     Arguments:
         in_channels : (int) number of channels going into the block
@@ -38,21 +44,35 @@ class ResNetBasicBlock(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1,
-                      *args, **kwargs)
+                      *args, **kwargs),
+            nn.BatchNorm2d(out_channels)
         )
 
     def forward(self, x):
-        y = self.conv(x)
-        x = torch.cat((y, x), dim=1)
-        return nn.ReLU(x)
+        print(x.shape)
+        return nn.ReLU()(x + self.conv(x))
 
 
-class ResNetEncodeLayer(nn.Module):
+class ResNetLayer(nn.Module):
+    """
+    Creates `n` of the ResNet basic blocks
+
+    Arguments:
+        in_channels: (int) number of channels going into the layer
+        out_channels: (int) number of channels going out of the layer
+        n: (int) number of blocks
+        *args : args to pass to the torch.nn.Conv2d function
+        **kwargs : kwargs to pass to the torch.nn.Conv2d function
+
+    Returns:
+        A layer with `n` BasicBlocks derived from the nn.Module class
+    """
     def __init__(self, in_channels, out_channels, n=1, *args, **kwargs):
+        super().__init__()
         self.blocks = nn.Sequential(
-            ResNetBasicBlock(in_channels, out_channels),
-            *[ResNetBasicBlock(out_channels, out_channels,
-                               *args, **kwargs) for _ in range(n-1)]
+            BasicBlock(in_channels, out_channels),
+            *[BasicBlock(out_channels, out_channels,
+                         *args, **kwargs) for _ in range(n-1)]
         )
 
     def forward(self, x):
@@ -60,46 +80,79 @@ class ResNetEncodeLayer(nn.Module):
 
 
 class ResUNet(nn.Module):
+    """
+    Class to build the ResUNet architecture.
+    The blocks keep the channels constant while the 1x1 convolution will
+    increase the channels after the layers.
+
+    Arguments:
+        in_channels
+        block_sizes
+        depths
+
+    Returns:
+        ResUNet object derived from nn.Module, can be trained in a standard
+        PyTorch training loop.
+    """
     def __init__(self, in_channels=2, block_sizes=[64, 128, 256, 512, 1024],
                  depths=[2, 3, 5, 2]):
+        super().__init__()
         self.in_out_sizes = list(zip(block_sizes[0:], block_sizes[1:]))
         self.gate = nn.Sequential(
             nn.Conv2d(in_channels, block_sizes[0], kernel_size=7,
                       padding=3),
-            nn.BatchNorm2d(block_sizes[1]),
+            nn.BatchNorm2d(block_sizes[0]),
             nn.ReLU(),
-            nn.Conv2d(block_sizes[0],  block_sizes[0],
-                      kernel_size=3, padding=1)
+            nn.Conv2d(block_sizes[0], block_sizes[0],
+                      kernel_size=3, padding=1),
+            nn.BatchNorm2d(block_sizes[0]),
+            nn.ReLU()
         )
+        self.gate_conv = nn.Conv2d(block_sizes[0], block_sizes[1],
+                                   kernel_size=1)
         self.encoder_layers = nn.ModuleList([
-            ResNetEncodeLayer(in_channels, out_channels, n)
-            for (in_channels, out_channels), n in zip(self.in_out_sizes,
+            ResNetLayer(in_channels, in_channels, n)
+            for (in_channels, out_channels), n in zip(self.in_out_sizes[1:],
                                                       depths)
         ])
         self.decoder_layers = nn.ModuleList([
-            ResNetDecodeLayer()
-        ])
+            ResNetLayer(in_channels, out_channels, n)
+            for (in_channels, out_channels), n in zip(self.in_out_sizes[::-1],
+                                                      [2 for _ in depths])
+        ])  # decoder layers are fixed at depth 2
 
     def forward(self, x):
         x = self.gate(x)
-        skip_layers = []
-        skip_layers.append(x)
+        print(x.shape)
+        x = self.gate_conv(x)
+        print(x.shape)
+        skip = []
+        skip.append(x)
         # encoder
-        for layer, (in_channels, out_channels) in zip(self.encoder_layers,
-                                                      self.in_out_sizes):
+        for layer, (in_chan, out_chan) in zip(self.encoder_layers,
+                                              self.in_out_sizes[1:]):
             # input to each layer is x, let y be the output of each layer
             # pooling before each layer as gate is applied first
-            y = layer(nn.MaxPool2d(kernel_size=2, stride=2)(x))
-            skip_layers.append(y)
-            # apply 1x1 conv to have same number of channels at concatenation
-            join_y = nn.Conv2d(in_channels, out_channels, kernel_size=1)(x)
-            x = torch.cat((y, join_y), dim=1)
+            x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+            print(x.shape, "MaxPool")
+            y = layer(x)
+            print(y.shape, "Layer")
+            skip.append(y)
+            # apply 1x1 conv to end with out_chan
+            join_xy = torch.cat((x, y), dim=1)
+            x = nn.Conv2d(out_chan, out_chan, kernel_size=1)(join_xy)
         # decoder
-        for layer, (in_channels, out_channels) in zip(self.decoder_layers,
-                                                      self.in_out_sizes[::-1]):
+        for i, layer, (in_chan, out_chan) in zip(range(len(skip)-1, -1, -1),
+                                                 self.decoder_layers,
+                                                 self.in_out_sizes[::-1]):
             # upsample
-            # concat skip layers
+            x = nn.ConvTranspose2d(in_chan, out_chan,
+                                   kernel_size=2, stride=2)(x)
+            # concat with skip layers
+            y = torch.cat((x, skip[i]), dim=1)
             # decode layer
             y = layer(x)
-            # concat 1x1 conv
+            # concat then 1x1 conv
+            join_xy = torch.cat((x, y), dim=1)
+            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(join_xy)
         return x
