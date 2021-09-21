@@ -1,15 +1,17 @@
+"""
+Class definitions for the ResUNet and its component layers.
+"""
 ###############################################################################
 
 # Written by Ryan Smith
 # ryan.smith@ucdconnect.ie
+# github.com/ryan597/DynamicTextureWaves
 
 ###############################################################################
 
 # TO DO
 # Fix encoder decoder
 # issues with channels
-
-
 
 import torch
 import torch.nn as nn
@@ -64,6 +66,9 @@ class ResNetLayer(nn.Module):
         *args : args to pass to the torch.nn.Conv2d function
         **kwargs : kwargs to pass to the torch.nn.Conv2d function
 
+    Metods:
+        forward(self, x): x (torch.Tensor)
+
     Returns:
         A layer with `n` BasicBlocks derived from the nn.Module class
     """
@@ -89,6 +94,12 @@ class ResUNet(nn.Module):
         in_channels
         block_sizes
         depths
+
+    Methods:
+        forward(self, x): x (torch.Tensor) is the sample to compute the forward
+            propagation throught the network. The tensor contains the batch
+            samples first, then channels and height and width dimensions of the
+            image.
 
     Returns:
         ResUNet object derived from nn.Module, can be trained in a standard
@@ -122,6 +133,9 @@ class ResUNet(nn.Module):
         ])  # decoder layers are fixed at depth 2
 
     def forward(self, x):
+        """
+        The forward propagation for the neural network defined by the __init__
+        """
         x = self.gate(x)
         print(x.shape)
         x = self.gate_conv(x)
