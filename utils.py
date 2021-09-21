@@ -1,7 +1,12 @@
+"""
+Contains useful functions for the PyTorch model, class definition for the data
+pipeline, loading and for generating the results.
+"""
 ###############################################################################
 
 # Written by Ryan Smith
 # ryan.smith@ucdconnect.ie
+# github.com/ryan597/DynamicTextureWaves
 
 ###############################################################################
 
