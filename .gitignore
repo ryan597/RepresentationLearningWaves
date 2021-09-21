@@ -3,4 +3,5 @@ data/**
 outputs/**
 configs/**
 
+*.pyc
 __pycache__/**
