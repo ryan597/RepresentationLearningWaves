@@ -20,10 +20,10 @@ import torch.nn as nn
 class BasicBlock(nn.Module):
     """
     Arguments:
-        in_channels : (int) number of channels going into the block
-        out_channels : (int) number of channels going out of the block
-        *args : args to pass to the torch.nn.Conv2d function
-        **kwargs : kwargs to pass to the torch.nn.Conv2d function
+        in_channels (int): number of channels going into the block
+        out_channels (int): number of channels going out of the block
+        *args: args to pass to the torch.nn.Conv2d function
+        **kwargs: kwargs to pass to the torch.nn.Conv2d function
 
     Returns:
         A single ResNet Basic Block derived from the nn.Module class.
@@ -60,11 +60,11 @@ class ResNetLayer(nn.Module):
     Creates `n` of the ResNet basic blocks
 
     Arguments:
-        in_channels: (int) number of channels going into the layer
-        out_channels: (int) number of channels going out of the layer
-        n: (int) number of blocks
-        *args : args to pass to the torch.nn.Conv2d function
-        **kwargs : kwargs to pass to the torch.nn.Conv2d function
+        in_channels (int): number of channels going into the layer
+        out_channels: (int): number of channels going out of the layer
+        n (int): number of blocks
+        *args: args to pass to the torch.nn.Conv2d function
+        **kwargs: kwargs to pass to the torch.nn.Conv2d function
 
     Metods:
         forward(self, x): x (torch.Tensor)
@@ -91,9 +91,11 @@ class ResUNet(nn.Module):
     increase the channels after the layers.
 
     Arguments:
-        in_channels
-        block_sizes
-        depths
+        in_channels (int): The number of input channels, default value 2
+        block_sizes (list<int>): The channels in the following blocks.
+            Default value [64, 128, 256, 512, 1024]
+        depths (list<int>): The number of basic blocks to use at each layer.
+            Default value [2, 3, 5, 2]
 
     Methods:
         forward(self, x): x (torch.Tensor) is the sample to compute the forward

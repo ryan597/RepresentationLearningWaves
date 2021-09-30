@@ -38,7 +38,7 @@ else:
 # Data Pipeline
 
 class InputImages(Dataset):
-    def __init__(self, path, transform=None):
+    def __init__(self, path, transform=None): 
         self.file_path = path
         self.files = glob.glob(self.file_path+'/*.png') +\
             glob.glob(self.file_path+'/*.jpg')
@@ -110,7 +110,8 @@ def train_model(model, train, valid, epochs, learning_rate, verbose=1):
 
     criterion = nn.L1Loss().to(DEVICE)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs*3,
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,
+                                                     T_max=epochs*3,
                                                      eta_min=1e-7)
 
     for i in range(epochs):
