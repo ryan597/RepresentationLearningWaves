@@ -17,8 +17,6 @@ from os.path import exists
 
 # Pytorch imports
 import torch
-import torch.nn as nn
-import torch.optim as optim
 
 # My imports
 import utils

@@ -16,17 +16,12 @@ import cv2
 import glob
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Pytorch imports
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-
-# Sklearn imports
-# from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
 
 if torch.cuda.is_available():
     DEVICE = 'cuda'
@@ -38,7 +33,7 @@ else:
 # Data Pipeline
 
 class InputImages(Dataset):
-    def __init__(self, path, transform=None): 
+    def __init__(self, path, transform=None):
         self.file_path = path
         self.files = glob.glob(self.file_path+'/*.png') +\
             glob.glob(self.file_path+'/*.jpg')
@@ -223,36 +218,3 @@ def evaluate_model(valid, model, savefile=None):
             if i == 4:
                 break
 
-
-###############################################################################
-# Results
-
-def plot_history(history):
-    plt.plot(history["epoch"], history["loss"], label="training loss")
-    plt.plot(history["epoch"], history["val_loss"], label="validation loss")
-    plt.title('Training and Validation loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend(loc='best')
-    plt.grid(True)
-    plt.show()
-
-
-def get_confusion_matrix(val_predictions, val_actual):
-    labels = np.argmax(val_actual, axis=1)
-    pre = np.argmax(val_predictions, axis=1)
-
-    cm = confusion_matrix(labels, pre)
-    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-    sns.set(font_scale=2)
-    sns.heatmap(cm,
-                annot=True,
-                cmap=sns.cubehelix_palette(dark=0, light=1, as_cmap=True),
-                cbar=False)
-
-    classes = ["spill", "plunge", "nonbreaking"]
-    yclasses = ['true '+t for t in classes]
-    tick_marks = np.arange(len(classes))+.5
-    plt.xticks(tick_marks, classes, rotation=0, fontsize=10)
-    plt.yticks(tick_marks, yclasses, rotation=45, fontsize=10)
-    plt.show()

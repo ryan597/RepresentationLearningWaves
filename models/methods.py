@@ -9,10 +9,13 @@ class PyTorchModel():
     Arguments:
         model (nn.Module): An instance of nn.Module which has a defined
             forward() method
+
         epochs (int): The number of epochs to train for. Default value 10.
+
         learning_rate (double): The multiplication parameter to be passed when
             updating weights in backpropagation. Controls how large the weights
             updates can be. Default value 0.01
+
         criterion (torch.autograd.Function): Should be an instance of one of
             the pytorch loss functions or a callable function which returns a
             loss value. A custom function should use torch operations
@@ -20,16 +23,23 @@ class PyTorchModel():
             Otherwise a custom class which inherits from
             torch.autograd.Function and defines both forward and backward
             methods. Default value torch.nn.L1Loss()
+
         optimizer (torch.optim.optimizer.Optimizer):
+
         scheduler (): Function to call when changing the learning rate.
             Default value None
 
     Methods:
         train_model:
+
         save_model:
+
         evaluate_model:
+
         predict:
+
         update_logs:
+
         get_logs:
 
     """

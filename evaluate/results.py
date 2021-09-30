@@ -1,17 +1,46 @@
 """
 File to run for generating results for a particular model.
+Usage:
+    A
+    A
+    A
 """
-###############################################################################
 
-# Written by Ryan Smith
-# ryan.smith@ucdconnect.ie
-# github.com/ryan597/DynamicTextureWaves
 
 ###############################################################################
-
-
 # Results
 
+"""
+def plot_history(history):
+    plt.plot(history["epoch"], history["loss"], label="training loss")
+    plt.plot(history["epoch"], history["val_loss"], label="validation loss")
+    plt.title('Training and Validation loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.show()
+
+
+def get_confusion_matrix(val_predictions, val_actual):
+    labels = np.argmax(val_actual, axis=1)
+    pre = np.argmax(val_predictions, axis=1)
+
+    cm = confusion_matrix(labels, pre)
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    sns.set(font_scale=2)
+    sns.heatmap(cm,
+                annot=True,
+                cmap=sns.cubehelix_palette(dark=0, light=1, as_cmap=True),
+                cbar=False)
+
+    classes = ["spill", "plunge", "nonbreaking"]
+    yclasses = ['true '+t for t in classes]
+    tick_marks = np.arange(len(classes))+.5
+    plt.xticks(tick_marks, classes, rotation=0, fontsize=10)
+    plt.yticks(tick_marks, yclasses, rotation=45, fontsize=10)
+    plt.show()
+"""
 
 # plunge_history = plunge_model.train_model(train_plunge, valid_plunge, 10,
 #                                           0.0001)
