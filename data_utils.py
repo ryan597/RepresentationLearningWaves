@@ -87,39 +87,3 @@ def show_samples(dataloader, no_samples=5):
     # fig.supxlabel("1st, 2nd and 3rd Image from Sequence")
     # fig.supylabel("Samples")
     plt.show()
-
-
-###############################################################################
-# Training loop functions
-
-"""
-def evaluate_model(valid, model, savefile=None):
-    with torch.no_grad():
-        for i, (batch_pair, batch_nxt) in enumerate(valid):
-            fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5,
-                                                          figsize=(15, 15))
-            for j, img_pair in enumerate(batch_pair):
-                ax1.imshow(img_pair[0])
-                ax1.axis('off')
-                ax2.imshow(img_pair[1])
-                ax2.axis('off')
-                ax3.imshow(batch_nxt[0][0])
-                ax3.axis('off')
-                pr = model(batch_pair.to(DEVICE))[0][0].detach()\
-                    .to('cpu').numpy()
-                pm = (pr - np.min(pr))/(np.max(pr)-np.min(pr))
-                ax4.imshow(pm)
-                ax4.axis('off')
-                bnxt = ((batch_nxt[0][0].numpy() -
-                        np.min(batch_nxt[0][0].numpy())) /
-                        (np.max(batch_nxt[0][0].numpy()) -
-                        np.min(batch_nxt[0][0].numpy())))
-                ax5.imshow(1 - np.abs(img_pair[1] - bnxt), cmap='gray')
-                ax5.axis('off')
-                if savefile is not None:
-                    plt.savefig(f"{savefile}_{i}")
-                fig.show()
-                break
-            if i == 4:
-                break
-"""
