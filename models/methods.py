@@ -114,7 +114,7 @@ class PyTorchModel():
     def save_model(self, epoch, val_loss):
         timestamp = datetime.datetime.today().replace(second=0, microsecond=0)
         torch.save(self.model.state_dict(),
-                   f"models/{epoch}_{val_loss}_{timestamp}.pth")
+                   f"models/weights/{epoch}_{val_loss}_{timestamp}.pth")
 
     def validate_model(self, dataloader):
         with torch.no_grad():
