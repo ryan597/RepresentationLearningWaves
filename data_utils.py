@@ -18,19 +18,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Pytorch imports
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
-
-if torch.cuda.is_available():
-    DEVICE = 'cuda'
-else:
-    DEVICE = 'cpu'
-
 
 ###############################################################################
 # Data Pipeline
+
 
 class InputImages(Dataset):
     def __init__(self, path, transform=None):
@@ -98,96 +90,9 @@ def show_samples(dataloader, no_samples=5):
 
 
 ###############################################################################
-# Training Loop
+# Training loop functions
 
-def train_model(model, train, valid, epochs, learning_rate, verbose=1):
-    history = {"loss": [], "val_loss": [], "epoch": [], "lr": []}
-
-    criterion = nn.L1Loss().to(DEVICE)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,
-                                                     T_max=epochs*3,
-                                                     eta_min=1e-7)
-
-    for i in range(epochs):
-        history["epoch"].append(i+1)
-        history["lr"].append(scheduler.get_lr())
-        accum_loss = 0
-        total_loss = 0
-        optimizer.zero_grad()
-        print(f"learning rate {scheduler.get_lr()}")
-
-        for j, (inputs, nxt) in enumerate(train):
-            inputs = inputs.to(DEVICE)
-            nxt = nxt.to(DEVICE)
-
-            outputs = model(inputs)
-            loss = criterion(outputs, nxt)
-            accum_loss += loss.item()
-            loss.backward()
-
-            optimizer.step()
-            optimizer.zero_grad()
-            if j % 10 == 0 and verbose:
-                print(f"loss \t {accum_loss / 10}")
-                total_loss += accum_loss
-                accum_loss = 0
-
-        optimizer.step()
-        optimizer.zero_grad()
-        total_loss *= 1 / len(train)
-        history["loss"].append(total_loss)
-
-        print(f"Epoch \t {i+1} finished")
-        scheduler.step()
-        # Validation
-        with torch.no_grad():
-            valid_loss = 0
-            for j, (inputs, nxt) in enumerate(valid):
-
-                inputs = inputs.to(DEVICE)
-                nxt = nxt.to(DEVICE)
-
-                outputs = model(inputs)
-                val_loss = criterion(outputs, nxt)
-                valid_loss += val_loss.item()
-
-            valid_loss *= 1/len(valid)
-            history["val_loss"].append(valid)
-            print(f"validation loss : \t{valid_loss} \n")
-
-    return history
-
-
-def get_model_losses(valid, label,
-                     spill_model, plunge_model, nonbreaking_model):
-    preds = []
-    errors = []
-    actual = []
-    with torch.no_grad():
-        for j, (pair, nxt) in enumerate(valid):
-            criterion = nn.L1Loss().to(DEVICE)
-
-            pair = pair.to(DEVICE)
-            nxt = nxt.to(DEVICE)
-
-            spill_output = spill_model(pair)
-            plunge_output = plunge_model(pair)
-            nonbreaking_output = nonbreaking_model(pair)
-            spill_loss = criterion(spill_output, nxt).to('cpu')
-            plunge_loss = criterion(plunge_output, nxt).to('cpu')
-            nonbreaking_loss = criterion(nonbreaking_output, nxt).to('cpu')
-
-            batch_preds = [spill_loss, plunge_loss, nonbreaking_loss]
-            batch_preds_hot = (batch_preds == np.min(batch_preds)).astype(int)
-
-            errors.append(batch_preds)
-            preds.append(batch_preds_hot)
-            actual.append(label)
-
-    return preds, errors, actual
-
-
+"""
 def evaluate_model(valid, model, savefile=None):
     with torch.no_grad():
         for i, (batch_pair, batch_nxt) in enumerate(valid):
@@ -217,4 +122,4 @@ def evaluate_model(valid, model, savefile=None):
                 break
             if i == 4:
                 break
-
+"""
