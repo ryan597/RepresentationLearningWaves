@@ -18,7 +18,7 @@ from os.path import exists
 # Pytorch imports
 import torch
 
-# My imports
+# Other imports
 import utils
 from models.ResUNet import ResUNet
 
@@ -64,17 +64,3 @@ if __name__ == '__main__':
     # Training model
 
     # Results
-
-###############################################################################
-# Save Models
-
-# #torch.save(model.state_dict(), f"DT_model_spill_128.pth")
-# torch.save(model.state_dict(), f"DT_model_spill_400_pretrained.pth")
-
-# #torch.save(model.state_dict(), f"DT_model_plunge_128.pth")
-# torch.save(model.state_dict(), f"DT_model_plunge_400_pretrained.pth")
-
-# torch.save(model.state_dict(), f"DT_model_nonbreaking_128.pth")
-# torch.save(model.state_dict(), f"DT_model_nonbreaking_400.pth")
-
-###############################################################################
