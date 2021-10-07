@@ -1,4 +1,4 @@
-name: dynamictexture
+name: rlwaves
 channels:
   - anaconda
   - conda-forge
@@ -16,7 +16,7 @@ dependencies:
   - pillow=8.3.2
   - pip=21.2.4
   - pyqt=5.9.2
-  - python=3.6.13
+  - python=3.8
   - pytorch=1.4.0
   - qt=5.9.7
   - scikit-learn=0.24.2

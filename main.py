@@ -5,7 +5,7 @@ Main python script for the training of the dynamic texture model
 
 # Written by Ryan Smith
 # ryan.smith@ucdconnect.ie
-# github.com/ryan597/DynamicTextureWaves
+# github.com/ryan597/RepresentationLearningWaves
 
 ###############################################################################
 
