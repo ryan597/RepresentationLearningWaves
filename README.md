@@ -1,12 +1,12 @@
-# Dynamic texture of breaking waves
+# Representation Learning of breaking waves
 
-Repository for code to reproduce the results of the pre-print Dynamic texture of breaking waves.
+Repository for code to reproduce the results of the pre-print Representation Learning of breaking waves.
 
 ---
 
 ## Contents
 
-[Dynamic texture of breaking waves](#dynamic-texture-of-breaking-waves)
+[Representation Learning of breaking waves](#representation-learning-of-breaking-waves)
 
 - [1. Environment](#1-environment)
 - [2. Data](#2-data)
@@ -28,7 +28,7 @@ Creating a virtual environment to install the dependencies packages is recommend
 
 ```bash
 conda env create -f environment.yml
-conda activate dynamictexture
+conda activate rlwaves
 ```
 
 #### exporting dependencies to yml file
@@ -40,8 +40,8 @@ conda env export > environment.yml
 ### Using [`pip`](https://pypi.org/project/pip/)
 
 ```bash
-python3 -m venv dynamictexture
-source dynamictexture/bin/activate
+python3 -m venv rlwaves
+source rlwaves/bin/activate
 pip install -r requirements.txt
 ```
 
