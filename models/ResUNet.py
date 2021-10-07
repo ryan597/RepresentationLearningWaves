@@ -1,17 +1,6 @@
 """
 Class definitions for the ResUNet and its component layers.
 """
-###############################################################################
-
-# Written by Ryan Smith
-# ryan.smith@ucdconnect.ie
-# github.com/ryan597/DynamicTextureWaves
-
-###############################################################################
-
-# TO DO
-# Fix encoder decoder
-# issues with channels
 
 import torch
 import torch.nn as nn
@@ -107,68 +96,90 @@ class ResUNet(nn.Module):
         ResUNet object derived from nn.Module, can be trained in a standard
         PyTorch training loop.
     """
-    def __init__(self, in_channels=2, block_sizes=[64, 128, 256, 512, 1024],
-                 depths=[2, 3, 5, 2]):
+    def __init__(self, in_channels=2,
+                 block_sizes=[32, 64, 128, 256, 512, 1024],
+                 depths=[2, 3, 5, 3, 2]):
         super().__init__()
         self.in_out_sizes = list(zip(block_sizes[0:], block_sizes[1:]))
+        # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
-            nn.Conv2d(in_channels, block_sizes[0], kernel_size=7,
-                      padding=3),
+            nn.Conv2d(in_channels, block_sizes[0], kernel_size=7, padding=3),
             nn.BatchNorm2d(block_sizes[0]),
             nn.ReLU(),
-            nn.Conv2d(block_sizes[0], block_sizes[0],
-                      kernel_size=3, padding=1),
-            nn.BatchNorm2d(block_sizes[0]),
+            nn.Conv2d(block_sizes[0], block_sizes[1], kernel_size=3,
+                      padding=1),
+            nn.BatchNorm2d(block_sizes[1]),
             nn.ReLU()
         )
-        self.gate_conv = nn.Conv2d(block_sizes[0], block_sizes[1],
-                                   kernel_size=1)
         self.encoder_layers = nn.ModuleList([
             ResNetLayer(in_channels, in_channels, n)
             for (in_channels, out_channels), n in zip(self.in_out_sizes[1:],
                                                       depths)
         ])
+        self.bridge = nn.Sequential(
+            ResNetLayer(self.in_out_sizes[-1][1],
+                        self.in_out_sizes[-1][1],
+                        n=2),
+            nn.BatchNorm2d(self.in_out_sizes[-1][1]),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
         self.decoder_layers = nn.ModuleList([
-            ResNetLayer(in_channels, out_channels, n)
-            for (in_channels, out_channels), n in zip(self.in_out_sizes[::-1],
+            ResNetLayer(in_channels, in_channels, n)
+            for (out_channels, in_channels), n in zip(self.in_out_sizes[::-1],
                                                       [2 for _ in depths])
         ])  # decoder layers are fixed at depth 2
+        print(self.encoder_layers, self.decoder_layers)
 
     def forward(self, x):
         """
-        The forward propagation for the neural network defined by the __init__
+        The forward propagation for the neural network layers in the __init__()
+
+        || gate(x)                ||
+        || encoder(x)             ||
+        || bridge(x)              ||
+        || decoder(x)             ||
+        || conv 1x1 (x)           ||
+        || Sigmoid(x)             ||
+
+        Args:
+            x (torch.Tensor): The minibatch which is to be run through the
+            network. Should be of shape (BATCH_SIZE, 2, HEIGHT, WIDTH), where
+            BATCH_SIZE is the number of samples in each batch, HEIGHT and WIDTH
+            are the pixel dimensions of the input samples.
+
+        Returns:
+            A torch.Tensor with shape of (BATCH_SIZE, 1, HEIGHT, WIDTH), where
+            BATCH_SIZE is the number of samples in each batch, HEIGHT and WIDTH
+            are the pixel dimensions of the input samples.
         """
         x = self.gate(x)
-        print(x.shape)
-        x = self.gate_conv(x)
-        print(x.shape)
         skip = []
         skip.append(x)
         # encoder
         for layer, (in_chan, out_chan) in zip(self.encoder_layers,
                                               self.in_out_sizes[1:]):
-            # input to each layer is x, let y be the output of each layer
-            # pooling before each layer as gate is applied first
             x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-            print(x.shape, "MaxPool")
-            y = layer(x)
-            print(y.shape, "Layer")
-            skip.append(y)
-            # apply 1x1 conv to end with out_chan
-            join_xy = torch.cat((x, y), dim=1)
-            x = nn.Conv2d(out_chan, out_chan, kernel_size=1)(join_xy)
+            x = layer(x)
+            skip.append(x)
+            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
+        # bridge
+        x = self.bridge(x)
         # decoder
-        for i, layer, (in_chan, out_chan) in zip(range(len(skip)-1, -1, -1),
+        print("DECODER")
+        skip = skip[::-1]  # Reverse skip for easy indexing
+        for i, layer, (out_chan, in_chan) in zip(range(len(skip)),
                                                  self.decoder_layers,
-                                                 self.in_out_sizes[::-1]):
+                                                 self.in_out_sizes[::-1][:-1]):
             # upsample
             x = nn.ConvTranspose2d(in_chan, out_chan,
                                    kernel_size=2, stride=2)(x)
+            print(x.shape, "Upsample")
             # concat with skip layers
-            y = torch.cat((x, skip[i]), dim=1)
-            # decode layer
-            y = layer(x)
-            # concat then 1x1 conv
-            join_xy = torch.cat((x, y), dim=1)
-            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(join_xy)
-        return x
+            x = torch.cat((x, skip[i]), dim=1)
+            print(x.shape, "Concat")
+            x = layer(x)
+            print(x.shape, "Layer Finished")
+            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
+        x = nn.Conv2d(out_chan, 1, kernel_size=1)(x)
+        return nn.Sigmoid()(x)
