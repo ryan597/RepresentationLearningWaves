@@ -4,63 +4,73 @@ pipeline, loading and for generating the results.
 """
 
 # Python Imports
-import os
 import cv2
 import glob
-import numpy as np
 import matplotlib.pyplot as plt
 
 # Pytorch imports
+import torch
 from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms as T
 
 ###############################################################################
 # Data Pipeline
 
 
-class InputImages(Dataset):
-    def __init__(self, path, transform=None):
-        self.file_path = path
-        self.files = glob.glob(self.file_path+'/*.png') +\
-            glob.glob(self.file_path+'/*.jpg')
-        self.transform = transform
-        self.dataset_len = len(self.files)
+class InputSequence(Dataset):
+    def __init__(self, path, image_size):
+        self.folder_path = path
+        self.image_size = image_size
+        self.transform = self.get_transform()
+        self.folders = glob.glob(self.folder_path)
+        self.sequences = self.generate_sequences()
+        self.dataset_len = len(self.sequences)
+
+    def generate_sequences(self):
+        sequences = {}
+        counter = 0
+        for folder in self.folders:
+            files = glob.glob(self.folder_path+f"/{folder}/*.png") +\
+                glob.glob(self.folder_path+f"/{folder}/*.jpg")
+            for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
+                sequences[counter] = (img1, img2, img3)
+                counter += 1
+
+        return sequences
 
     def __getitem__(self, index):
-        image1 = self.fetch_image(index)
-        image2 = self.fetch_image(index+1)
-        image3 = self.fetch_image(index+2)
-
-        input_images = np.array([image1, image2])
-
-        return input_images, image3
+        p1, p2, p3 = self.sequences[index]
+        image1 = self.fetch_image(p1)
+        image2 = self.fetch_image(p2)
+        image3 = self.fetch_image(p3)
+        input_images = torch.Tensor(image1, image2)
+        return (input_images, image3)
 
     def __len__(self):
         return self.dataset_len
 
-    def fetch_image(self, index):
-        return cv2.imread(self.files[index], cv2.IMREAD_GRAYSCALE)
+    def fetch_image(self, path):
+        image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        return self.transform(image)
+
+    def get_transform(self):
+        transform = T.Compose(
+            # T.ColorJitter(brightness, contrast, saturation, hue)
+            # T.RandomAffine(degrees, translate, scale, interpolation)
+            # T.RandomResizedCrop(size)
+            # T.RandomRotation(degrees)
+            # T.Normalize(mean, std)
+            T.Resize(size=self.image_size),
+            T.ToTensor()
+        )
+        return transform
 
 
-def get_transform(image_size):
-    return None
-
-
-def load_data(path, image_size, batch_size=1, shuffle=True):
-    transform = get_transform(image_size=image_size)
-    dataset = InputImages(path, transform)
+def load_data(path, image_size=(256, 256), batch_size=1, shuffle=True):
+    dataset = InputSequence(path, image_size)
     dataloader = DataLoader(dataset, batch_size=batch_size,
                             shuffle=shuffle, num_workers=8)
     return dataloader
-
-
-def wave_sort(path, I1, wave=[]):
-    wave.append(I1)
-    for i in range(1, 100):
-        I2 = I1 + i
-        if os.path.isfile(path+str(I2)+'.jpg'):
-            wave = wave_sort(path, I2, wave)
-            return wave
-    return wave
 
 
 def show_samples(dataloader, no_samples=5):
