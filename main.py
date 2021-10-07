@@ -37,22 +37,24 @@ if __name__ == '__main__':
     # config variables
     with open("configs/" + args.config + ".json", 'r') as config_json:
         config = json.load(config_json)
+        print(config, flush=True)
 
     model_name = config["model_name"]
     weights_path = config["weights_path"]
     train_path = config["train_path"]
     results_path = config["results_path"]
+    image_size = config["image_size"]
     imaug = config["imaug"]
 
     epochs = config["epochs"]
     learning_rate = config["learning_rate"]
-    criterion = config["criterion"]
-    optimizer = config["optimizer"]
-    scheduler = config["scheduler"]
+    criterion = getattr(torch.nn, config["criterion"])
+    optimizer = getattr(torch.optim, config["optimizer"])
+    scheduler = getattr(torch.optim.lr_scheduler, config["scheduler"])
 
     # Loading datasets
-    train_data = utils.load_data(train_path, IMAGE_SIZE)
-    # valid_data = utils.load_data(valid_path, IMAGE_SIZE)
+    train_data = utils.load_data(train_path, (image_size, image_size))
+    # valid_data = utils.load_data(valid_path, image_size)
 
     # Loading model
     model = ResUNet(in_channels=2,
