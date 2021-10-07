@@ -18,9 +18,9 @@ from torchvision import transforms as T
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_size):
+    def __init__(self, path, image_shape):
         self.folder_path = path
-        self.image_size = image_size
+        self.image_shape = image_shape
         self.transform = self.get_transform()
         self.folders = glob.glob(self.folder_path)
         self.sequences = self.generate_sequences()
@@ -60,14 +60,14 @@ class InputSequence(Dataset):
             # T.RandomResizedCrop(size)
             # T.RandomRotation(degrees)
             # T.Normalize(mean, std)
-            T.Resize(size=self.image_size),
+            T.Resize(size=self.image_shape),
             T.ToTensor()
         )
         return transform
 
 
-def load_data(path, image_size=(256, 256), batch_size=1, shuffle=True):
-    dataset = InputSequence(path, image_size)
+def load_data(path, image_shape=(256, 256), batch_size=1, shuffle=True):
+    dataset = InputSequence(path, image_shape)
     dataloader = DataLoader(dataset, batch_size=batch_size,
                             shuffle=shuffle, num_workers=8)
     return dataloader
