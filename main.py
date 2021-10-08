@@ -20,7 +20,7 @@ from os.path import exists
 import torch
 
 # Other imports
-import utils
+import data_utils
 from models.ResUNet import ResUNet
 from models.methods import PyTorchModel
 
@@ -53,8 +53,8 @@ if __name__ == '__main__':
     scheduler = getattr(torch.optim.lr_scheduler, config["scheduler"])
 
     # Loading datasets
-    train_data = utils.load_data(train_path, (image_size, image_size))
-    # valid_data = utils.load_data(valid_path, image_size)
+    train_data = data_utils.load_data(train_path, (image_size, image_size))
+    # valid_data = data_utils.load_data(valid_path, image_size)
 
     # Loading model
     model = ResUNet(in_channels=2,
@@ -73,7 +73,7 @@ if __name__ == '__main__':
                          T_max=epochs*3,  # scheduler kwarg
                          eta_min=1e-7)  # scheduler kwarg
 
-    utils.show_samples(train_data)
+    data_utils.show_samples(train_data)
 
     # Training model
     logs = model.train_model(train_data, valid_data=None)

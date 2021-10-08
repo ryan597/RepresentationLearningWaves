@@ -13,6 +13,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
+torch.manual_seed(2021)
 ###############################################################################
 # Data Pipeline
 
@@ -54,7 +55,7 @@ class InputSequence(Dataset):
         return self.transform(image)
 
     def get_transform(self):
-        transform = T.Compose(
+        transform = torch.nn.Sequential(
             # T.ColorJitter(brightness, contrast, saturation, hue)
             # T.RandomAffine(degrees, translate, scale, interpolation)
             # T.RandomResizedCrop(size)
@@ -63,7 +64,7 @@ class InputSequence(Dataset):
             T.Resize(size=self.image_shape),
             T.ToTensor()
         )
-        return transform
+        return torch.jit.script(transform)
 
 
 def load_data(path, image_shape=(256, 256), batch_size=1, shuffle=True):
