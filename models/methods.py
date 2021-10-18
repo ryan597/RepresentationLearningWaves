@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import matplotlib.pyplot as plt
+
 if torch.cuda.is_available():
     DEVICE = 'cuda'
 else:
@@ -65,7 +67,7 @@ class PyTorchModel():
         self.model = model.to(DEVICE)
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.criterion = criterion.to(DEVICE)
+        self.criterion = criterion().to(DEVICE)
         self.optimizer = optimizer(self.model.parameters(),
                                    lr=self.learning_rate)
         if scheduler is not None:
@@ -75,7 +77,7 @@ class PyTorchModel():
         for i in range(self.epochs):
             self.update_logs("epoch", i)
             if self.scheduler is not None:
-                self.update_logs("lr", self.scheduler.get_lr())
+                self.update_logs("lr", self.scheduler.get_last_lr())
             else:
                 self.update_logs("lr", self.learning_rate)
             # reset losses and gradients on each epoch start
@@ -96,6 +98,7 @@ class PyTorchModel():
                 self.optimizer.zero_grad()
                 if j % 10 == 0:  # every 10 batches
                     print(f"loss \t {accum_loss / 10}")
+                    #self.show_predictions(outputs, nxt)
                     total_loss += accum_loss
                     accum_loss = 0
 
@@ -107,14 +110,16 @@ class PyTorchModel():
                 self.scheduler.step()
             # Validation
             if valid is not None:
-                self.validate_model()
+                self.validate_model(valid)
 
         return self.logs
 
-    def save_model(self, epoch, val_loss):
+    def save_model(self, name):
         timestamp = datetime.datetime.today().replace(second=0, microsecond=0)
+        epochs = self.logs['epoch'][-1]
+        val_loss = self.logs['val_loss'][-1]
         torch.save(self.model.state_dict(),
-                   f"models/weights/{epoch}_{val_loss}_{timestamp}.pth")
+                   f"models/weights/{name}_{epochs}_{val_loss}_{timestamp}.pth")
 
     def validate_model(self, dataloader):
         with torch.no_grad():
@@ -136,6 +141,23 @@ class PyTorchModel():
             for i, inputs in enumerate(dataloader):
                 inputs = inputs.to(DEVICE)
                 return self.model(inputs)
+
+    def show_predictions(self, outputs, true_batch, num_samples=2):
+        fig, ax = plt.subplots(num_samples,
+                               2,
+                               gridspec_kw={'wspace': 0, 'hspace': 0},
+                               subplot_kw={'xticks': [], 'yticks': []})
+
+        for i, image in enumerate(outputs):
+            ax[i, 0].imshow(image.detach().numpy()[0])
+            ax[i, 1].imshow(true_batch[0].detach().numpy()[0])
+
+            if i == (num_samples - 1):
+                break
+        fig.suptitle("Model predicted outputs")
+        # fig.supxlabel("")
+        # fig.supylabel("")
+        plt.show()
 
     def update_logs(self, key, value):
         self.logs[key].append(value)

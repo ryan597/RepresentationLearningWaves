@@ -100,33 +100,25 @@ class ResUNet(nn.Module):
                  depths=[2, 3, 5, 3, 2]):
         super().__init__()
         self.out_channels = out_channels
-        self.in_out_sizes = list(zip(block_sizes[0:], block_sizes[1:]))
+        self.in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
             nn.Conv2d(in_channels, block_sizes[0], kernel_size=7, padding=3),
             nn.BatchNorm2d(block_sizes[0]),
             nn.ReLU(),
-            nn.Conv2d(block_sizes[0], block_sizes[1], kernel_size=3,
+            nn.Conv2d(block_sizes[0], block_sizes[0], kernel_size=3,
                       padding=1),
-            nn.BatchNorm2d(block_sizes[1]),
+            nn.BatchNorm2d(block_sizes[0]),
             nn.ReLU()
         )
         self.encoder_layers = nn.ModuleList([
-            ResNetLayer(in_channels, in_channels, n)
-            for (in_channels, out_channels), n in zip(self.in_out_sizes[1:],
+            ResNetLayer(out_channels, out_channels, n)
+            for (in_channels, out_channels), n in zip(self.in_out_sizes,
                                                       depths)
         ])
-        self.bridge = nn.Sequential(
-            ResNetLayer(self.in_out_sizes[-1][1],
-                        self.in_out_sizes[-1][1],
-                        n=2),
-            nn.BatchNorm2d(self.in_out_sizes[-1][1]),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
         self.decoder_layers = nn.ModuleList([
             ResNetLayer(in_channels, in_channels, n)
-            for (out_channels, in_channels), n in zip(self.in_out_sizes[::-1],
+            for (in_channels, out_channels), n in zip(self.in_out_sizes[::-1],
                                                       [2 for _ in depths])
         ])  # decoder layers are fixed at depth 2
 
@@ -136,7 +128,6 @@ class ResUNet(nn.Module):
 
         || gate(x)                ||
         || encoder(x)             ||
-        || bridge(x)              ||
         || decoder(x)             ||
         || conv 1x1 (x)           ||
         || Sigmoid(x)             ||
@@ -157,24 +148,21 @@ class ResUNet(nn.Module):
         skip.append(x)
         # encoder
         for layer, (in_chan, out_chan) in zip(self.encoder_layers,
-                                              self.in_out_sizes[1:]):
+                                              self.in_out_sizes):
             x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
             x = layer(x)
             skip.append(x)
-            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
-        # bridge
-        x = self.bridge(x)
+
         # decoder
-        skip = skip[::-1]  # Reverse skip for easy indexing
-        for i, layer, (out_chan, in_chan) in zip(range(len(skip)),
+        skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
+        for i, layer, (out_chan, in_chan) in zip(range(len(skip)+1),
                                                  self.decoder_layers,
-                                                 self.in_out_sizes[::-1][:-1]):
-            # upsample
+                                                 self.in_out_sizes[::-1]):
             x = nn.ConvTranspose2d(in_chan, out_chan,
                                    kernel_size=2, stride=2)(x)
-            # concat with skip layers
             x = torch.cat((x, skip[i]), dim=1)
-            x = layer(x)
             x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
-        x = nn.Conv2d(out_chan, self.out_channels, kernel_size=1)(x)
+            x = layer(x)
+        x = nn.Conv2d(self.in_out_sizes[0][0], 1, kernel_size=1)(x)
         return nn.Sigmoid()(x)

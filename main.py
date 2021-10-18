@@ -32,12 +32,11 @@ if __name__ == '__main__':
                         help="Name of the config file inside ./config/")
     args = parser.parse_args()
 
-    IMAGE_SIZE = 300
-
     # config variables
     with open("configs/" + args.config + ".json", 'r') as config_json:
         config = json.load(config_json)
-        print(config, flush=True)
+
+    print(json.dumps(config, indent=4), flush=True)
 
     model_name = config["model_name"]
     weights_path = config["weights_path"]
@@ -55,17 +54,19 @@ if __name__ == '__main__':
     # Loading datasets
     train_data = data_utils.load_data(train_path, (image_size, image_size))
     # valid_data = data_utils.load_data(valid_path, image_size)
+    # data_utils.show_samples(train_data)
 
     # Loading model
     model = ResUNet(in_channels=2,
                     out_channels=1,
-                    layer_size=[64, 128, 256, 512, 1024])
+                    block_sizes=[32, 64, 128, 256, 512, 1024],
+                    depths=[2, 3, 5, 3, 2])
 
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
 
     model = PyTorchModel(model,
-                         epochs=epochs,
+                         epochs=1000,
                          learning_rate=learning_rate,
                          criterion=criterion,
                          optimizer=optimizer,
@@ -73,13 +74,13 @@ if __name__ == '__main__':
                          T_max=epochs*3,  # scheduler kwarg
                          eta_min=1e-7)  # scheduler kwarg
 
-    data_utils.show_samples(train_data)
-
     # Training model
-    logs = model.train_model(train_data, valid_data=None)
+    logs = model.train_model(train_data, valid=None)
+
+    model.save_model(model_name)
 
     timestamp = datetime.datetime.today().replace(second=0, microsecond=0)
-    with open(f"outputs/results/{timestamp}.json") as f:
+    with open(f"outputs/results/{timestamp}.json", 'w') as f:
         json.dump(logs, f)
 
     # Results

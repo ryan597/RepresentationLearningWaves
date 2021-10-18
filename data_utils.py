@@ -44,7 +44,7 @@ class InputSequence(Dataset):
         image1 = self.fetch_image(p1)
         image2 = self.fetch_image(p2)
         image3 = self.fetch_image(p3)
-        input_images = torch.Tensor(image1, image2)
+        input_images = torch.cat((image1, image2), dim=0)
         return (input_images, image3)
 
     def __len__(self):
@@ -83,9 +83,10 @@ def show_samples(dataloader, num_samples=5):
                            subplot_kw={'xticks': [], 'yticks': []})
 
     for i, (samples, truth) in enumerate(dataloader):
-        ax[i, 0].imshow(samples[0, 0])
-        ax[i, 1].imshow(samples[0, 1])
-        ax[i, 2].imshow(truth[0])
+        # enumerate delivers a batch, just pick the first in the batch
+        ax[i, 0].imshow(samples[0][0].numpy())  # first channel
+        ax[i, 1].imshow(samples[0][1].numpy())  # second channel
+        ax[i, 2].imshow(truth[0][0].numpy())
 
         if i == (num_samples - 1):
             break
