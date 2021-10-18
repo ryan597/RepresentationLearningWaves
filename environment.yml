@@ -9,9 +9,10 @@ dependencies:
   - scikit-learn
   - matplotlib
   - pip
+  - python=3.7
+  - pyqt=5.6
   - seaborn
   - pip:
     - opencv-python
     - torch
     - torchvision
-prefix: /home/ryan/miniconda3/envs/rlwaves
