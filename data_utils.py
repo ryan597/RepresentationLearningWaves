@@ -20,10 +20,10 @@ torch.manual_seed(2021)
 
 class InputSequence(Dataset):
     def __init__(self, path, image_shape):
-        self.folder_path = path
         self.image_shape = image_shape
+        self.folder_path = path
+        self.folders = glob.glob(self.folder_path + "/wave_*")
         self.transform = self.get_transform()
-        self.folders = glob.glob(self.folder_path)
         self.sequences = self.generate_sequences()
         self.dataset_len = len(self.sequences)
 
@@ -31,8 +31,8 @@ class InputSequence(Dataset):
         sequences = {}
         counter = 0
         for folder in self.folders:
-            files = glob.glob(self.folder_path+f"/{folder}/*.png") +\
-                glob.glob(self.folder_path+f"/{folder}/*.jpg")
+            files = glob.glob(f"{folder}/*.png") +\
+                glob.glob(f"{folder}/*.jpg")
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
                 sequences[counter] = (img1, img2, img3)
                 counter += 1
@@ -55,16 +55,18 @@ class InputSequence(Dataset):
         return self.transform(image)
 
     def get_transform(self):
-        transform = torch.nn.Sequential(
-            # T.ColorJitter(brightness, contrast, saturation, hue)
-            # T.RandomAffine(degrees, translate, scale, interpolation)
-            # T.RandomResizedCrop(size)
-            # T.RandomRotation(degrees)
-            # T.Normalize(mean, std)
-            T.Resize(size=self.image_shape),
-            T.ToTensor()
-        )
-        return torch.jit.script(transform)
+        transform = T.Compose([
+            T.ToTensor(),
+            # T.RandomApply([
+            #    T.ColorJitter(brightness, contrast, saturation, hue)
+            #    T.RandomAffine(degrees, translate, scale, interpolation)
+            #    T.RandomResizedCrop(size)
+            #    T.RandomRotation(degrees)
+            #    T.Normalize(mean, std)
+            # ]),
+            T.Resize(size=self.image_shape)
+        ])
+        return transform
 
 
 def load_data(path, image_shape=(256, 256), batch_size=1, shuffle=True):
@@ -74,8 +76,8 @@ def load_data(path, image_shape=(256, 256), batch_size=1, shuffle=True):
     return dataloader
 
 
-def show_samples(dataloader, no_samples=5):
-    fig, ax = plt.subplots(no_samples,
+def show_samples(dataloader, num_samples=5):
+    fig, ax = plt.subplots(num_samples,
                            3,
                            gridspec_kw={'wspace': 0, 'hspace': 0},
                            subplot_kw={'xticks': [], 'yticks': []})
@@ -85,7 +87,7 @@ def show_samples(dataloader, no_samples=5):
         ax[i, 1].imshow(samples[0, 1])
         ax[i, 2].imshow(truth[0])
 
-        if i == (no_samples - 1):
+        if i == (num_samples - 1):
             break
     fig.suptitle("Sample images from dataset")
     # fig.supxlabel("1st, 2nd and 3rd Image from Sequence")
