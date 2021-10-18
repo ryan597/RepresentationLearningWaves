@@ -40,7 +40,6 @@ class BasicBlock(nn.Module):
         )
 
     def forward(self, x):
-        print(x.shape)
         return nn.ReLU()(x + self.conv(x))
 
 
@@ -96,10 +95,11 @@ class ResUNet(nn.Module):
         ResUNet object derived from nn.Module, can be trained in a standard
         PyTorch training loop.
     """
-    def __init__(self, in_channels=2,
+    def __init__(self, in_channels=2, out_channels=1,
                  block_sizes=[32, 64, 128, 256, 512, 1024],
                  depths=[2, 3, 5, 3, 2]):
         super().__init__()
+        self.out_channels = out_channels
         self.in_out_sizes = list(zip(block_sizes[0:], block_sizes[1:]))
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
@@ -129,7 +129,6 @@ class ResUNet(nn.Module):
             for (out_channels, in_channels), n in zip(self.in_out_sizes[::-1],
                                                       [2 for _ in depths])
         ])  # decoder layers are fixed at depth 2
-        print(self.encoder_layers, self.decoder_layers)
 
     def forward(self, x):
         """
@@ -166,7 +165,6 @@ class ResUNet(nn.Module):
         # bridge
         x = self.bridge(x)
         # decoder
-        print("DECODER")
         skip = skip[::-1]  # Reverse skip for easy indexing
         for i, layer, (out_chan, in_chan) in zip(range(len(skip)),
                                                  self.decoder_layers,
@@ -174,12 +172,9 @@ class ResUNet(nn.Module):
             # upsample
             x = nn.ConvTranspose2d(in_chan, out_chan,
                                    kernel_size=2, stride=2)(x)
-            print(x.shape, "Upsample")
             # concat with skip layers
             x = torch.cat((x, skip[i]), dim=1)
-            print(x.shape, "Concat")
             x = layer(x)
-            print(x.shape, "Layer Finished")
             x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
-        x = nn.Conv2d(out_chan, 1, kernel_size=1)(x)
+        x = nn.Conv2d(out_chan, self.out_channels, kernel_size=1)(x)
         return nn.Sigmoid()(x)
