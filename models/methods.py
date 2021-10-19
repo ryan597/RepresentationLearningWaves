@@ -1,3 +1,4 @@
+import json
 import datetime
 import torch
 import torch.nn as nn
@@ -51,9 +52,6 @@ class PyTorchModel():
         predict (self, torch.utils.data.DataLoader: dataloader):
 
         update_logs (self, str: key, double: value):
-
-        get_logs (self, str: key=None):
-
     """
     def __init__(self,
                  model,
@@ -94,18 +92,20 @@ class PyTorchModel():
                 accum_loss += loss.item()
                 loss.backward()
 
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                if j % 10 == 0:  # every 10 batches
-                    print(f"loss \t {accum_loss / 10}")
-                    #self.show_predictions(outputs, nxt)
+                if j % 50 == 0:  # every 50 batches
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    print(f"Batch {j}:\t loss = {accum_loss / 50}")
                     total_loss += accum_loss
                     accum_loss = 0
+                    self.show_predictions(outputs, nxt, epoch=i, batch=j)
 
             total_loss *= 1 / len(train)
             self.update_logs("loss", total_loss)
+            self.save_model(f"epoch{i}")
+            self.save_logs("outputs/results/training")
 
-            print(f"Epoch \t {i} finished")
+            print(f"Epoch \t {i} finished, model saved")
             if self.scheduler is not None:
                 self.scheduler.step()
             # Validation
@@ -115,11 +115,10 @@ class PyTorchModel():
         return self.logs
 
     def save_model(self, name):
-        timestamp = datetime.datetime.today().replace(second=0, microsecond=0)
-        epochs = self.logs['epoch'][-1]
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         val_loss = self.logs['val_loss'][-1]
         torch.save(self.model.state_dict(),
-                   f"models/weights/{name}_{epochs}_{val_loss}_{timestamp}.pth")
+                   f"models/weights/{name}_{val_loss}_{timestamp}.pth")
 
     def validate_model(self, dataloader):
         with torch.no_grad():
@@ -142,62 +141,38 @@ class PyTorchModel():
                 inputs = inputs.to(DEVICE)
                 return self.model(inputs)
 
-    def show_predictions(self, outputs, true_batch, num_samples=2):
+    def show_predictions(self, outputs, true_batch, num_samples=1,
+                         epoch=0, batch=0):
         fig, ax = plt.subplots(num_samples,
                                2,
-                               gridspec_kw={'wspace': 0, 'hspace': 0},
+                               gridspec_kw={'wspace': 0.1, 'hspace': 0.1},
                                subplot_kw={'xticks': [], 'yticks': []})
 
         for i, image in enumerate(outputs):
-            ax[i, 0].imshow(image.detach().numpy()[0])
-            ax[i, 1].imshow(true_batch[0].detach().numpy()[0])
+            ax[0].imshow(image.detach().numpy()[0])
+            ax[1].imshow(true_batch[0].detach().numpy()[0])
 
             if i == (num_samples - 1):
                 break
-        fig.suptitle("Model predicted outputs")
+        fig.suptitle("Model predicted outputs", fontsize=24)
+        ax[0].set_title('Predicted', fontsize=20)
+        ax[0].set(xlabel=f"Epoch: {epoch}    Batch: {batch}")
+        ax[1].set_title('Ground Truth', fontsize=20)
+
         # fig.supxlabel("")
         # fig.supylabel("")
-        plt.show()
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        plt.savefig(f"outputs/figures/training/{timestamp}.png")
+        # plt.show()
+        plt.close()
 
     def update_logs(self, key, value):
         self.logs[key].append(value)
         print(f"{key} : \t{value} \n")
 
-    def get_logs(self, key=None):
-        if key is None:
-            return self.logs
-        else:
-            return self.logs[key]
-
-
-"""
-def show_validation_predictions(valid, model, savefile=None):
-    with torch.no_grad():
-        for i, (batch_pair, batch_nxt) in enumerate(valid):
-            fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5,
-                                                          figsize=(15, 15))
-            for j, img_pair in enumerate(batch_pair):
-                ax1.imshow(img_pair[0])
-                ax1.axis('off')
-                ax2.imshow(img_pair[1])
-                ax2.axis('off')
-                ax3.imshow(batch_nxt[0][0])
-                ax3.axis('off')
-                pr = model(batch_pair.to(DEVICE))[0][0].detach()\
-                    .to('cpu').numpy()
-                pm = (pr - np.min(pr))/(np.max(pr)-np.min(pr))
-                ax4.imshow(pm)
-                ax4.axis('off')
-                bnxt = ((batch_nxt[0][0].numpy() -
-                        np.min(batch_nxt[0][0].numpy())) /
-                        (np.max(batch_nxt[0][0].numpy()) -
-                        np.min(batch_nxt[0][0].numpy())))
-                ax5.imshow(1 - np.abs(img_pair[1] - bnxt), cmap='gray')
-                ax5.axis('off')
-                if savefile is not None:
-                    plt.savefig(f"{savefile}_{i}")
-                fig.show()
-                break
-            if i == 4:
-                break
-"""
+    def save_logs(self, results_path):
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H")
+        with open(f"{results_path}/logs_{timestamp}.json", 'w',
+                  encoding='utf-8') as f:
+            json.dump(self.logs, f, ensure_ascii=False, indent=4)

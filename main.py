@@ -12,7 +12,6 @@ Main python script for the training of the dynamic texture model
 # Python imports
 import argparse
 import json
-import datetime
 # import seaborn as sns
 from os.path import exists
 
@@ -66,7 +65,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(weights_path))
 
     model = PyTorchModel(model,
-                         epochs=1000,
+                         epochs=100,
                          learning_rate=learning_rate,
                          criterion=criterion,
                          optimizer=optimizer,
@@ -78,9 +77,6 @@ if __name__ == '__main__':
     logs = model.train_model(train_data, valid=None)
 
     model.save_model(model_name)
-
-    timestamp = datetime.datetime.today().replace(second=0, microsecond=0)
-    with open(f"outputs/results/{timestamp}.json", 'w') as f:
-        json.dump(logs, f)
+    model.save_logs(results_path)
 
     # Results
