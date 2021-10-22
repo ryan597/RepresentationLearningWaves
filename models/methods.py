@@ -61,7 +61,8 @@ class PyTorchModel():
                  optimizer=optim.Adam,
                  scheduler=None,
                  **kwargs):
-        self.logs = {"loss": [], "val_loss": [], "epoch": [], "lr": []}
+        self.logs = {"loss": [], "batch_loss": [], "val_loss": [],
+                     "epoch": [], "lr": []}
         self.model = model.to(DEVICE)
         self.epochs = epochs
         self.learning_rate = learning_rate
@@ -92,10 +93,11 @@ class PyTorchModel():
                 accum_loss += loss.item()
                 loss.backward()
 
-                if j % 50 == 0:  # every 50 batches
+                if j % 5 == 0 and j != 0:  # every 50 batches
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-                    print(f"Batch {j}:\t loss = {accum_loss / 50}")
+                    self.update_logs("batch_loss", accum_loss / 5)
+                    print(f"Batch {j}:\t loss = {accum_loss / 5}")
                     total_loss += accum_loss
                     accum_loss = 0
                     self.show_predictions(outputs, nxt, epoch=i, batch=j)
@@ -115,10 +117,10 @@ class PyTorchModel():
         return self.logs
 
     def save_model(self, name):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        val_loss = self.logs['val_loss'][-1]
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        loss = self.logs['loss'][-1]
         torch.save(self.model.state_dict(),
-                   f"models/weights/{name}_{val_loss}_{timestamp}.pth")
+                   f"models/weights/{name}_{loss}_{timestamp}.pth")
 
     def validate_model(self, dataloader):
         with torch.no_grad():
@@ -162,7 +164,7 @@ class PyTorchModel():
         # fig.supxlabel("")
         # fig.supylabel("")
 
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         plt.savefig(f"outputs/figures/training/{timestamp}.png")
         # plt.show()
         plt.close()
@@ -172,7 +174,7 @@ class PyTorchModel():
         print(f"{key} : \t{value} \n")
 
     def save_logs(self, results_path):
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H")
         with open(f"{results_path}/logs_{timestamp}.json", 'w',
                   encoding='utf-8') as f:
             json.dump(self.logs, f, ensure_ascii=False, indent=4)

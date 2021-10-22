@@ -2,6 +2,9 @@
 data/**
 outputs/**
 configs/**
+models/weights/**
+
+ICHEC_README.md
 
 *.pyc
 __pycache__/**
