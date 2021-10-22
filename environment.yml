@@ -3,8 +3,11 @@ channels:
   - conda-forge
   - anaconda
   - defaults
+  - pytorch
 dependencies:
-  - cudatoolkit=10.2
+  - cudatoolkit=11.3
+  - pytorch
+  - torchvision
   - numpy
   - scikit-learn
   - matplotlib
@@ -14,5 +17,3 @@ dependencies:
   - seaborn
   - pip:
     - opencv-python
-    - torch
-    - torchvision
