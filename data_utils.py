@@ -13,7 +13,8 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
 
-torch.manual_seed(42)
+# torch.manual_seed(42)
+
 ###############################################################################
 # Data Pipeline
 
