@@ -17,18 +17,27 @@ from os.path import exists
 
 # Pytorch imports
 import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 # Other imports
 import data_utils
 from models.ResUNet import ResUNet
 from models.methods import PyTorchModel
 
+
+def init_process(rank, size, backend="nccl"):
+    dist.init_process_group(backend, rank=rank, world_size=size)
+
+
 ###############################################################################
 # Parse arguments
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Name of the config file inside ./config/")
+    parser.add_argument("-r", "--rank", help="Local rank or device number")
     args = parser.parse_args()
 
     # config variables
@@ -50,6 +59,15 @@ if __name__ == '__main__':
     optimizer = getattr(torch.optim, config["optimizer"])
     scheduler = getattr(torch.optim.lr_scheduler, config["scheduler"])
 
+    # Must run the script with this many different ranks
+    # If world_size=2, then you must run in the terminal
+    #       python main.py -c config -r 0 &
+    #       python main.py -c config -r 1
+    # The process initialiser halts the program until all processes have joined
+    world_size = torch.cuda.device_count()
+    rank = args.rank
+    init_process(rank, world_size)
+
     # Loading datasets
     train_data = data_utils.load_data(train_path, (image_size, image_size))
     # valid_data = data_utils.load_data(valid_path, image_size)
@@ -64,7 +82,10 @@ if __name__ == '__main__':
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
 
+    model = model.to(rank)
+    model = DDP(model, device_ids=[rank])
     model = PyTorchModel(model,
+                         rank=rank,
                          epochs=100,
                          learning_rate=learning_rate,
                          criterion=criterion,
@@ -76,7 +97,6 @@ if __name__ == '__main__':
     # Training model
     logs = model.train_model(train_data, valid=None)
 
-    model.save_model(model_name)
-    model.save_logs(results_path)
-
-    # Results
+    if rank == 0:
+        model.save_model(model_name)
+        model.save_logs(results_path)

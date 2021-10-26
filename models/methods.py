@@ -1,15 +1,10 @@
 import json
 import datetime
+import matplotlib.pyplot as plt
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-import matplotlib.pyplot as plt
-
-if torch.cuda.is_available():
-    DEVICE = 'cuda'
-else:
-    DEVICE = 'cpu'
 
 
 class PyTorchModel():
@@ -55,6 +50,7 @@ class PyTorchModel():
     """
     def __init__(self,
                  model,
+                 rank,
                  epochs=10,
                  learning_rate=0.01,
                  criterion=nn.L1Loss,
@@ -63,10 +59,11 @@ class PyTorchModel():
                  **kwargs):
         self.logs = {"loss": [], "batch_loss": [], "val_loss": [],
                      "epoch": [], "lr": []}
-        self.model = model.to(DEVICE)
+        self.model = model
+        self.rank = rank
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.criterion = criterion().to(DEVICE)
+        self.criterion = criterion().to(self.rank)
         self.optimizer = optimizer(self.model.parameters(),
                                    lr=self.learning_rate)
         if scheduler is not None:
@@ -85,29 +82,31 @@ class PyTorchModel():
             self.optimizer.zero_grad()
 
             for j, (inputs, nxt) in enumerate(train):
-                inputs = inputs.to(DEVICE)
-                nxt = nxt.to(DEVICE)
+                inputs = inputs.to(self.rank)
+                nxt = nxt.to(self.rank)
 
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, nxt)
                 accum_loss += loss.item()
                 loss.backward()
 
-                if j % 5 == 0 and j != 0:  # every 50 batches
+                if j % 5 == 0 and j != 0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.update_logs("batch_loss", accum_loss / 5)
-                    print(f"Batch {j}:\t loss = {accum_loss / 5}")
+                    print(f"Rank {self.rank}:\t Batch {j}:\t" +
+                          f"loss = {accum_loss / 5}")
                     total_loss += accum_loss
                     accum_loss = 0
-                    self.show_predictions(outputs, nxt, epoch=i, batch=j)
+                    # self.show_predictions(outputs, nxt, epoch=i, batch=j)
 
             total_loss *= 1 / len(train)
-            self.update_logs("loss", total_loss)
-            self.save_model(f"epoch{i}")
-            self.save_logs("outputs/results/training")
+            if self.rank == 0:
+                self.update_logs("loss", total_loss)
+                self.save_model(f"epoch{i}")
+                self.save_logs("outputs/results/training")
+                print(f"Epoch \t {i} finished, model saved")
 
-            print(f"Epoch \t {i} finished, model saved")
             if self.scheduler is not None:
                 self.scheduler.step()
             # Validation
@@ -127,8 +126,8 @@ class PyTorchModel():
             validation_loss = 0
             for i, (inputs, nxt) in enumerate(dataloader):
 
-                inputs = inputs.to(DEVICE)
-                nxt = nxt.to(DEVICE)
+                inputs = inputs.to(self.rank)
+                nxt = nxt.to(self.rank)
 
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, nxt)
@@ -140,7 +139,7 @@ class PyTorchModel():
     def predict(self, dataloader):
         with torch.no_grad():
             for i, inputs in enumerate(dataloader):
-                inputs = inputs.to(DEVICE)
+                inputs = inputs.to(self.rank)
                 return self.model(inputs)
 
     def show_predictions(self, outputs, true_batch, num_samples=1,
@@ -175,6 +174,6 @@ class PyTorchModel():
 
     def save_logs(self, results_path):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H")
-        with open(f"{results_path}/logs_{timestamp}.json", 'w',
+        with open(f"{results_path}/logs_rank{self.rank}_{timestamp}.json", 'w',
                   encoding='utf-8') as f:
             json.dump(self.logs, f, ensure_ascii=False, indent=4)

@@ -6,15 +6,21 @@ pipeline, loading and for generating the results.
 # Python Imports
 import cv2
 import glob
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Pytorch imports
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms as T
+from torch.utils.data.distributed import DistributedSampler
 
-# torch.manual_seed(42)
-
+# Randomness must be disabled for distributed training!
+SEED = 42
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(SEED)
 ###############################################################################
 # Data Pipeline
 
@@ -70,10 +76,13 @@ class InputSequence(Dataset):
         return transform
 
 
-def load_data(path, image_shape=(256, 256), batch_size=1, shuffle=True):
+def load_data(path, rank, world_size, image_shape=(256, 256),
+              batch_size=16, shuffle=True):
     dataset = InputSequence(path, image_shape)
+    sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size,
+                                 shuffle=shuffle)
     dataloader = DataLoader(dataset, batch_size=batch_size,
-                            shuffle=shuffle, num_workers=8)
+                            sampler=sampler)
     return dataloader
 
 
