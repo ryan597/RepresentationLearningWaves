@@ -12,6 +12,7 @@ Main python script for the training of the dynamic texture model
 # Python imports
 import argparse
 import json
+import numpy as np
 # import seaborn as sns
 from os.path import exists
 
@@ -25,9 +26,20 @@ import data_utils
 from models.ResUNet import ResUNet
 from models.methods import PyTorchModel
 
+# Randomness must be disabled for distributed training!
+SEED = 42
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(SEED)
+
 
 def init_process(rank, size, backend="nccl"):
     dist.init_process_group(backend, rank=rank, world_size=size)
+
+
+def cleanup():
+    dist.destroy_process_group()
 
 
 ###############################################################################
@@ -95,8 +107,11 @@ if __name__ == '__main__':
                          eta_min=1e-7)  # scheduler kwarg
 
     # Training model
-    logs = model.train_model(train_data, valid=None)
+    with model.join():
+        logs = model.train_model(train_data, valid=None)
 
     if rank == 0:
         model.save_model(model_name)
         model.save_logs(results_path)
+
+    cleanup()
