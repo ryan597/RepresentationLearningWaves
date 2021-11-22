@@ -1,19 +1,21 @@
 name: rlwaves
 channels:
-  - conda-forge
   - anaconda
   - defaults
-  - pytorch
+  - conda-forge
 dependencies:
-  - cudatoolkit=11.3
-  - pytorch
-  - torchvision
-  - numpy
-  - scikit-learn
-  - matplotlib
-  - pip
-  - python=3.7
-  - pyqt=5.6
-  - seaborn
+  - cudatoolkit=11.3.1
+  - matplotlib=3.4.3
+  - numpy=1.21.3
+  - pillow=8.3.2
+  - pip=21.3
+  - pyqt=5.6.0
+  - python=3.7.10
+  - pytorch-gpu
+  - qt=5.6.3
+  - scikit-learn=1.0
+  - scipy=1.7.1
+  - seaborn=0.11.2
+  - torchvision=0.8.2
   - pip:
-    - opencv-python
+    - opencv-python==4.5.4.58

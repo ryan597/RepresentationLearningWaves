@@ -10,6 +10,7 @@ Main python script for the training of the dynamic texture model
 ###############################################################################
 
 # Python imports
+import os
 import argparse
 import json
 import numpy as np
@@ -35,6 +36,8 @@ np.random.seed(SEED)
 
 
 def init_process(rank, size, backend="nccl"):
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '29500'
     dist.init_process_group(backend, rank=rank, world_size=size)
 
 
@@ -49,7 +52,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Name of the config file inside ./config/")
-    parser.add_argument("-r", "--rank", help="Local rank or device number")
+    parser.add_argument("-r", "--rank", type=int, help="Local rank or device number")
     args = parser.parse_args()
 
     # config variables
