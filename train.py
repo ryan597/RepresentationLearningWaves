@@ -52,7 +52,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Name of the config file inside ./config/")
-    parser.add_argument("-r", "--rank", type=int, help="Local rank or device number")
+    parser.add_argument("-r", "--rank", type=int,
+                        help="Local rank or device number")
     args = parser.parse_args()
 
     # config variables
