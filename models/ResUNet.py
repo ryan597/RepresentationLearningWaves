@@ -99,8 +99,8 @@ class ResUNet(nn.Module):
                  block_sizes=[32, 64, 128, 256, 512, 1024],
                  depths=[2, 3, 5, 3, 2]):
         super().__init__()
-        self.out_channels = out_channels
-        self.in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
+        out_channels = out_channels
+        in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
             nn.Conv2d(in_channels, block_sizes[0], kernel_size=7, padding=3),
@@ -111,16 +111,34 @@ class ResUNet(nn.Module):
             nn.BatchNorm2d(block_sizes[0]),
             nn.ReLU()
         )
-        self.encoder_layers = nn.ModuleList([
+        encoder_layers = nn.ModuleList([
             ResNetLayer(out_channels, out_channels, n)
-            for (in_channels, out_channels), n in zip(self.in_out_sizes,
+            for (in_channels, out_channels), n in zip(in_out_sizes,
                                                       depths)
         ])
-        self.decoder_layers = nn.ModuleList([
+        decoder_layers = nn.ModuleList([
             ResNetLayer(in_channels, in_channels, n)
-            for (in_channels, out_channels), n in zip(self.in_out_sizes[::-1],
+            for (in_channels, out_channels), n in zip(in_out_sizes[::-1],
                                                       [2 for _ in depths])
         ])  # decoder layers are fixed at depth 2
+
+        self.encode = nn.ModuleList([])  # All modules must be initialised here
+        for layer, (in_chan, out_chan) in zip(encoder_layers, in_out_sizes):
+            self.encode.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            self.encode.append(nn.Conv2d(in_chan, out_chan, kernel_size=1))
+            self.encode.append(layer)
+
+        self.decode_upsample = nn.ModuleList([])
+        self.decode = nn.ModuleList([])
+        for layer, (out_chan, in_chan) in zip(decoder_layers,
+                                              in_out_sizes[::-1]):
+            self.decode_upsample.append(nn.ConvTranspose2d(in_chan, out_chan,
+                                        kernel_size=2, stride=2))
+
+            self.decode.append(nn.Conv2d(in_chan, out_chan, kernel_size=1))
+            self.decode.append(layer)
+
+        self.decode.append(nn.Conv2d(in_out_sizes[0][0], 1, kernel_size=1))
 
     def forward(self, x):
         """
@@ -144,25 +162,20 @@ class ResUNet(nn.Module):
             are the pixel dimensions of the input samples.
         """
         x = self.gate(x)
-        skip = []
-        skip.append(x)
+        skip = torch.cuda.FloatTensor(x)
         # encoder
-        for layer, (in_chan, out_chan) in zip(self.encoder_layers,
-                                              self.in_out_sizes):
-            x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
+        for layer in self.encode:
             x = layer(x)
-            skip.append(x)
+            skip = torch.cat((skip, x), dim=0)
 
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
-        for i, layer, (out_chan, in_chan) in zip(range(len(skip)+1),
-                                                 self.decoder_layers,
-                                                 self.in_out_sizes[::-1]):
-            x = nn.ConvTranspose2d(in_chan, out_chan,
-                                   kernel_size=2, stride=2)(x)
+        for i, upsample, layer in zip(range(len(skip)),
+                                      self.decode_upsample,
+                                      self.decode):
+            x = upsample(x)
             x = torch.cat((x, skip[i]), dim=1)
-            x = nn.Conv2d(in_chan, out_chan, kernel_size=1)(x)
             x = layer(x)
-        x = nn.Conv2d(self.in_out_sizes[0][0], 1, kernel_size=1)(x)
+
+        x = self.decode[-1](x)
         return nn.Sigmoid()(x)
