@@ -162,11 +162,11 @@ class ResUNet(nn.Module):
             are the pixel dimensions of the input samples.
         """
         x = self.gate(x)
-        skip = torch.cuda.FloatTensor(x)
+        skip = [x]
         # encoder
         for layer in self.encode:
             x = layer(x)
-            skip = torch.cat((skip, x), dim=0)
+            skip.append(x)
 
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
