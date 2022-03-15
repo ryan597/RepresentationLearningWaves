@@ -59,8 +59,9 @@ if __name__ == '__main__':
     # config variables
     with open("configs/" + args.config + ".json", 'r') as config_json:
         config = json.load(config_json)
-
-    print(json.dumps(config, indent=4), flush=True)
+    
+    if (args.rank == 0):
+        print(json.dumps(config, indent=4), flush=True)
 
     model_name = config["model_name"]
     weights_path = config["weights_path"]
@@ -85,22 +86,22 @@ if __name__ == '__main__':
     init_process(rank, world_size)
 
     # Loading datasets
-    train_data = data_utils.load_data(train_path, (image_size, image_size))
+    train_data = data_utils.load_data(train_path, rank, world_size, (image_size, image_size), batch_size=5)
     # valid_data = data_utils.load_data(valid_path, image_size)
     # data_utils.show_samples(train_data)
 
     # Loading model
     model = ResUNet(in_channels=2,
                     out_channels=1,
-                    block_sizes=[32, 64, 128, 256, 512, 1024],
-                    depths=[2, 3, 5, 3, 2])
+                    block_sizes=[32, 64, 128, 256, 512],
+                    depths=[2, 3, 5, 3])
 
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
 
-    model = model.to(rank)
-    model = DDP(model, device_ids=[rank])
-    model = PyTorchModel(model,
+    model = model.to(f"cuda:{rank}")
+    DPPmodel = DDP(model, device_ids=[rank])
+    model = PyTorchModel(DPPmodel,
                          rank=rank,
                          epochs=100,
                          learning_rate=learning_rate,
@@ -111,7 +112,7 @@ if __name__ == '__main__':
                          eta_min=1e-7)  # scheduler kwarg
 
     # Training model
-    with model.join():
+    with DPPmodel.join():
         logs = model.train_model(train_data, valid=None)
 
     if rank == 0:

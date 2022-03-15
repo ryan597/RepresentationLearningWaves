@@ -70,7 +70,11 @@ class PyTorchModel():
             self.scheduler = scheduler(self.optimizer, **kwargs)
 
     def train_model(self, train, valid=None):
+        if (self.rank==0):
+            print("Begining training...", flush=True)
         for i in range(self.epochs):
+            if (self.rank==0):
+                print(f"Epoch: {i}", flush=True)
             self.update_logs("epoch", i)
             if self.scheduler is not None:
                 self.update_logs("lr", self.scheduler.get_last_lr())
@@ -94,8 +98,6 @@ class PyTorchModel():
                     self.optimizer.step()
                     self.optimizer.zero_grad()
                     self.update_logs("batch_loss", accum_loss / 5)
-                    print(f"Rank {self.rank}:\t Batch {j}:\t" +
-                          f"loss = {accum_loss / 5}")
                     total_loss += accum_loss
                     accum_loss = 0
                     # self.show_predictions(outputs, nxt, epoch=i, batch=j)
@@ -105,7 +107,7 @@ class PyTorchModel():
                 self.update_logs("loss", total_loss)
                 self.save_model(f"epoch{i}")
                 self.save_logs("outputs/results/training")
-                print(f"Epoch \t {i} finished, model saved")
+                print(f"Epoch \t {i} finished, model saved", flush=True)
 
             if self.scheduler is not None:
                 self.scheduler.step()
@@ -170,7 +172,7 @@ class PyTorchModel():
 
     def update_logs(self, key, value):
         self.logs[key].append(value)
-        print(f"{key} : \t{value} \n")
+        print(f"{key} : \t{value} \n", flush=True)
 
     def save_logs(self, results_path):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H")

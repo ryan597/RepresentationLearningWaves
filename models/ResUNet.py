@@ -173,8 +173,6 @@ class ResUNet(nn.Module):
             x = layer(x)
             skip.append(x)
 
-        for t in skip:
-            print(t.size())
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
         for i, upsample, layer in zip(range(len(skip)+1),

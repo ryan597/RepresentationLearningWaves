@@ -4,7 +4,10 @@ outputs/**
 configs/**
 models/weights/**
 
+# ignore ichec stuff
 ICHEC_README.md
+slurm*
+batch.sh
 
 *.pyc
 __pycache__/**
