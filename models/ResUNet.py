@@ -124,9 +124,12 @@ class ResUNet(nn.Module):
 
         self.encode = nn.ModuleList([])  # All modules must be initialised here
         for layer, (in_chan, out_chan) in zip(encoder_layers, in_out_sizes):
-            self.encode.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            self.encode.append(nn.Conv2d(in_chan, out_chan, kernel_size=1))
-            self.encode.append(layer)
+            combinedlayer = nn.Sequential(
+                nn.MaxPool2d(kernel_size=2, stride=2),
+                nn.Conv2d(in_chan, out_chan, kernel_size=1),
+                layer
+                )
+            self.encode.append(combinedlayer)
 
         self.decode_upsample = nn.ModuleList([])
         self.decode = nn.ModuleList([])
@@ -134,9 +137,11 @@ class ResUNet(nn.Module):
                                               in_out_sizes[::-1]):
             self.decode_upsample.append(nn.ConvTranspose2d(in_chan, out_chan,
                                         kernel_size=2, stride=2))
-
-            self.decode.append(nn.Conv2d(in_chan, out_chan, kernel_size=1))
-            self.decode.append(layer)
+            combinedlayer = nn.Sequential(
+                nn.Conv2d(in_chan, out_chan, kernel_size=1),
+                layer
+            )
+            self.decode.append(combinedlayer)
 
         self.decode.append(nn.Conv2d(in_out_sizes[0][0], 1, kernel_size=1))
 
@@ -168,12 +173,15 @@ class ResUNet(nn.Module):
             x = layer(x)
             skip.append(x)
 
+        for t in skip:
+            print(t.size())
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
-        for i, upsample, layer in zip(range(len(skip)),
+        for i, upsample, layer in zip(range(len(skip)+1),
                                       self.decode_upsample,
                                       self.decode):
             x = upsample(x)
+
             x = torch.cat((x, skip[i]), dim=1)
             x = layer(x)
 
