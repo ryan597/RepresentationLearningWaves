@@ -1,0 +1,17 @@
+{
+    "model_name"      : "Frame_prediction",
+    "weights_path"    : "outputs/weights/train.pth",
+
+    "train_path"      : "/ichec/work/ndmat033a/rsmith/RepresentationLearningWaves/data/v1",
+    "results_path"    : "outputs/results",
+    "valid_path"      : "/ichec/work/ndmat033a/rsmith/RepresentationLearningWaves/data/v2",
+    "image_height"    : 256,
+    "image_width"     : 512,
+    "imaug"           : false,
+
+    "epochs"          : 100,
+    "learning_rate"   : 0.005,
+    "criterion"       : "L1Loss",
+    "optimizer"       : "Adam",
+    "scheduler"       : "ReduceLROnPlateau"
+}

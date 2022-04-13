@@ -1,7 +1,6 @@
 # ignore folders for now
 data/**
 outputs/**
-configs/**
 models/weights/**
 
 # ignore ichec stuff
