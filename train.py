@@ -101,6 +101,7 @@ if __name__ == '__main__':
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
 
+    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)  ## Sync BatchNorm for MultiGPU
     model = model.to(f"cuda:{rank}")
     DPPmodel = DDP(model, device_ids=[rank])
     model = PyTorchModel(DPPmodel,

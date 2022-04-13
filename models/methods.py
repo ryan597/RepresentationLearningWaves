@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributed as dist
+
 
 
 class PyTorchModel():
@@ -70,6 +72,7 @@ class PyTorchModel():
             self.scheduler = scheduler(self.optimizer, **kwargs)
 
     def train_model(self, train, valid=None):
+        world_size = dist.get_world_size()
         if (self.rank==0):
             print("Begining training...", flush=True)
         for i in range(self.epochs):
@@ -104,7 +107,7 @@ class PyTorchModel():
 
                     if j==50:  ## only once per epoch
                         self.show_predictions(outputs, nxt, epoch=i, batch=j)
-
+            total_loss = dist.reduce(total_loss, rank=0) / world_size
             total_loss *= 1 / len(train)
             if self.rank == 0:
                 self.update_logs("loss", total_loss)
@@ -112,12 +115,12 @@ class PyTorchModel():
                 self.save_logs("outputs/results/training")
                 print(f"Epoch \t {i} finished, model saved", flush=True)
 
-            if self.scheduler is not None:
-                self.scheduler.step()
             # Validation
             if valid is not None:
-                self.validate_model(valid)
+                valid_loss = self.validate_model(valid)
 
+            if self.scheduler is not None:
+                self.scheduler.step(valid_loss)
         return self.logs
 
     def save_model(self, name):
@@ -128,7 +131,7 @@ class PyTorchModel():
 
     def validate_model(self, dataloader):
         with torch.no_grad():
-            validation_loss = 0
+            valid_loss = 0
             for i, (inputs, nxt) in enumerate(dataloader):
 
                 inputs = inputs.to(self.rank)
@@ -136,11 +139,11 @@ class PyTorchModel():
 
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, nxt)
-                validation_loss += loss.item()
+                valid_loss += loss.item()
 
             self.show_predictions(outputs, inputs)
-
-            validation_loss *= 1/len(dataloader)
+            valid_loss = dist.reduce(valid_loss, rank=0) / world_size
+            valid_loss *= 1/len(dataloader)
             self.update_logs("val_loss", validation_loss)
 
     def predict(self, dataloader):
