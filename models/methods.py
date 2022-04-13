@@ -107,7 +107,7 @@ class PyTorchModel():
 
                     if j==50:  ## only once per epoch
                         self.show_predictions(outputs, nxt, epoch=i, batch=j)
-            total_loss = dist.reduce(total_loss, rank=0) / world_size
+            total_loss = dist.reduce(total_loss, dst=0) / world_size
             total_loss *= 1 / len(train)
             if self.rank == 0:
                 self.update_logs("loss", total_loss)
@@ -142,7 +142,7 @@ class PyTorchModel():
                 valid_loss += loss.item()
 
             self.show_predictions(outputs, inputs)
-            valid_loss = dist.reduce(valid_loss, rank=0) / world_size
+            valid_loss = dist.reduce(valid_loss, dst=0) / world_size
             valid_loss *= 1/len(dataloader)
             self.update_logs("val_loss", validation_loss)
 
@@ -180,8 +180,9 @@ class PyTorchModel():
         plt.close()
 
     def update_logs(self, key, value):
-        self.logs[key].append(value)
-        print(f"{key} : \t{value}", flush=True)
+        if dist.get_rank()==0:
+            self.logs[key].append(value)
+            print(f"{key} : \t{value}", flush=True)
 
     def save_logs(self, results_path):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H")
