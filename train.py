@@ -113,11 +113,12 @@ if __name__ == '__main__':
                          mode="min",
                          factor=0.1,
                          patience=2,
-                         threshold=0.001)  # scheduler kwarg
+                         threshold=0.001,
+                         verbose=True)  # scheduler kwarg
 
     # Training model
     with DPPmodel.join():
-        logs = model.train_model(train_data, valid=None)
+        logs = model.train_model(train_data, valid=valid_data)
 
     if rank == 0:
         model.save_model(model_name)

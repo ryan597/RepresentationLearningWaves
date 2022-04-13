@@ -76,11 +76,11 @@ class PyTorchModel():
             if (self.rank==0):
                 print("\n", flush=True)
                 self.update_logs("epoch", i)
-                if self.scheduler is not None:
+                """if self.scheduler is not None:
                     self.update_logs("lr", self.scheduler.get_last_lr())
                 else:
                     self.update_logs("lr", self.learning_rate)
-                
+                """
             # reset losses and gradients on each epoch start
             accum_loss = 0
             total_loss = 0
