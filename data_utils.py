@@ -69,7 +69,7 @@ class InputSequence(Dataset):
         return transform
 
 
-def load_data(path, rank, world_size, image_shape=(256, 256),
+def load_data(path, rank, world_size, image_shape,
               batch_size=16, shuffle=True):
     dataset = InputSequence(path, image_shape)
     sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size,

@@ -67,7 +67,9 @@ if __name__ == '__main__':
     weights_path = config["weights_path"]
     train_path = config["train_path"]
     results_path = config["results_path"]
-    image_size = config["image_size"]
+    valid_path = config['valid_path']
+    image_width = config["image_width"]
+    image_height = config["image_height"]
     imaug = config["imaug"]
 
     epochs = config["epochs"]
@@ -86,15 +88,15 @@ if __name__ == '__main__':
     init_process(rank, world_size)
 
     # Loading datasets
-    train_data = data_utils.load_data(train_path, rank, world_size, (image_size, image_size), batch_size=5)
-    # valid_data = data_utils.load_data(valid_path, image_size)
-    # data_utils.show_samples(train_data)
+    train_data = data_utils.load_data(train_path, rank, world_size, (image_height, image_width), batch_size=5)
+    valid_data = data_utils.load_data(valid_path, rank, world_size, (image_height, image_width), batch_size=5)
+    #data_utils.show_samples(train_data)
 
     # Loading model
     model = ResUNet(in_channels=2,
                     out_channels=1,
-                    block_sizes=[32, 64, 128, 256, 512],
-                    depths=[2, 3, 5, 3])
+                    block_sizes=[32, 64, 128, 256, 512, 1024],
+                    depths=[2, 3, 5, 3, 2])
 
     if exists(weights_path):
         model.load_state_dict(torch.load(weights_path))
@@ -103,13 +105,15 @@ if __name__ == '__main__':
     DPPmodel = DDP(model, device_ids=[rank])
     model = PyTorchModel(DPPmodel,
                          rank=rank,
-                         epochs=100,
+                         epochs=epochs,
                          learning_rate=learning_rate,
                          criterion=criterion,
                          optimizer=optimizer,
                          scheduler=scheduler,
-                         T_max=epochs*3,  # scheduler kwarg
-                         eta_min=1e-7)  # scheduler kwarg
+                         mode="min",
+                         factor=0.1,
+                         patience=2,
+                         threshold=0.001)  # scheduler kwarg
 
     # Training model
     with DPPmodel.join():

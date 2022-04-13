@@ -74,12 +74,13 @@ class PyTorchModel():
             print("Begining training...", flush=True)
         for i in range(self.epochs):
             if (self.rank==0):
-                print(f"Epoch: {i}", flush=True)
-            self.update_logs("epoch", i)
-            if self.scheduler is not None:
-                self.update_logs("lr", self.scheduler.get_last_lr())
-            else:
-                self.update_logs("lr", self.learning_rate)
+                print("\n", flush=True)
+                self.update_logs("epoch", i)
+                if self.scheduler is not None:
+                    self.update_logs("lr", self.scheduler.get_last_lr())
+                else:
+                    self.update_logs("lr", self.learning_rate)
+                
             # reset losses and gradients on each epoch start
             accum_loss = 0
             total_loss = 0
@@ -94,13 +95,15 @@ class PyTorchModel():
                 accum_loss += loss.item()
                 loss.backward()
 
-                if j % 5 == 0 and j != 0:
+                if j % 50 == 0 and j != 0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-                    self.update_logs("batch_loss", accum_loss / 5)
+                    self.update_logs("batch_loss", accum_loss / 50) ## divide by batch size?
                     total_loss += accum_loss
                     accum_loss = 0
-                    # self.show_predictions(outputs, nxt, epoch=i, batch=j)
+
+                    if j==50:  ## only once per epoch
+                        self.show_predictions(outputs, nxt, epoch=i, batch=j)
 
             total_loss *= 1 / len(train)
             if self.rank == 0:
@@ -135,6 +138,8 @@ class PyTorchModel():
                 loss = self.criterion(outputs, nxt)
                 validation_loss += loss.item()
 
+            self.show_predictions(outputs, inputs)
+
             validation_loss *= 1/len(dataloader)
             self.update_logs("val_loss", validation_loss)
 
@@ -144,7 +149,7 @@ class PyTorchModel():
                 inputs = inputs.to(self.rank)
                 return self.model(inputs)
 
-    def show_predictions(self, outputs, true_batch, num_samples=1,
+    def show_predictions(self, outputs, true_batch, num_samples=3,
                          epoch=0, batch=0):
         fig, ax = plt.subplots(num_samples,
                                2,
@@ -152,27 +157,28 @@ class PyTorchModel():
                                subplot_kw={'xticks': [], 'yticks': []})
 
         for i, image in enumerate(outputs):
-            ax[0].imshow(image.detach().numpy()[0])
-            ax[1].imshow(true_batch[0].detach().numpy()[0])
+            ax[i, 0].imshow(image.detach().cpu().numpy()[0])
+            ax[i, 1].imshow(true_batch[0].detach().cpu().numpy()[0])
 
             if i == (num_samples - 1):
                 break
-        fig.suptitle("Model predicted outputs", fontsize=24)
-        ax[0].set_title('Predicted', fontsize=20)
-        ax[0].set(xlabel=f"Epoch: {epoch}    Batch: {batch}")
-        ax[1].set_title('Ground Truth', fontsize=20)
-
-        # fig.supxlabel("")
-        # fig.supylabel("")
+        fig.suptitle("Frame prediction", fontsize=20)
+        ax[0, 0].set_title('Predicted', fontsize=15)
+        # ax[0].set(xlabel=f"Epoch: {epoch}    Batch: {batch}")
+        ax[0, 1].set_title('Ground Truth', fontsize=15)
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        plt.savefig(f"outputs/figures/training/{timestamp}.png")
-        # plt.show()
+        if epoch==0 and batch==0:
+            location = "validation"
+        else:
+            location = "training"
+        plt.savefig(f"outputs/figures/{location}/{timestamp}_{epoch}_{batch}.png")
+        plt.show()
         plt.close()
 
     def update_logs(self, key, value):
         self.logs[key].append(value)
-        print(f"{key} : \t{value} \n", flush=True)
+        print(f"{key} : \t{value}", flush=True)
 
     def save_logs(self, results_path):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H")
