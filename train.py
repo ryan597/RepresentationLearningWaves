@@ -88,8 +88,8 @@ if __name__ == '__main__':
     init_process(rank, world_size)
 
     # Loading datasets
-    train_data = data_utils.load_data(train_path, rank, world_size, (image_height, image_width), batch_size=5)
-    valid_data = data_utils.load_data(valid_path, rank, world_size, (image_height, image_width), batch_size=5)
+    train_data = data_utils.load_data(train_path, rank, world_size, (image_height, image_width), batch_size=10)
+    valid_data = data_utils.load_data(valid_path, rank, world_size, (image_height, image_width), batch_size=10)
     #data_utils.show_samples(train_data)
 
     # Loading model
@@ -98,12 +98,14 @@ if __name__ == '__main__':
                     block_sizes=[32, 64, 128, 256, 512, 1024],
                     depths=[2, 3, 5, 3, 2])
 
-    if exists(weights_path):
-        model.load_state_dict(torch.load(weights_path))
-
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)  ## Sync BatchNorm for MultiGPU
     model = model.to(f"cuda:{rank}")
     DPPmodel = DDP(model, device_ids=[rank])
+    if exists(weights_path):
+        DPPmodel.load_state_dict(torch.load(weights_path, map_location=f"cuda:{rank}"))
+
+
+
     model = PyTorchModel(DPPmodel,
                          rank=rank,
                          epochs=epochs,
