@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # config variables
     with open("configs/" + args.config + ".json", 'r') as config_json:
         config = json.load(config_json)
-    
+
     if (args.rank == 0):
         print(json.dumps(config, indent=4), flush=True)
 
@@ -97,11 +97,11 @@ if __name__ == '__main__':
                     out_channels=1,
                     block_sizes=[32, 64, 128, 256, 512, 1024],
                     depths=[2, 3, 5, 3, 2])
-    
+
     model = model.to(f"cuda:{rank}")
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)  ## Sync BatchNorm for MultiGPU
     DPPmodel = DDP(model, device_ids=[rank])
-    
+
     if exists(weights_path):
         DPPmodel.load_state_dict(torch.load(weights_path, map_location=f"cuda:{rank}"))
 

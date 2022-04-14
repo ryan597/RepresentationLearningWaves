@@ -7,7 +7,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--filename")
 args = parser.parse_args()
 
-
 with open(f"outputs/results/training/{args.filename}") as f:
     data_dict = json.load(f)
 
@@ -16,11 +15,18 @@ batch_loss = data_dict['batch_loss']
 val_loss = data_dict['val_loss']
 epoch = data_dict['epoch']
 
+
 fig, axs = plt.subplots(1, 2, sharey=True)
 
 axs[0].plot(epoch, loss, label="Training")
-axs[0].plot(epoch[:-1], val_loss, label="Validation")
-axs[1].plot(np.linspace(0, epoch, len(batch_loss)), batch_loss, label="Batch Loss", c='C0')
+
+if len(val_loss) != 0:
+    try:
+        axs[0].plot(epoch, val_loss, label="Validation")
+    except:
+        axs[0].plot(epoch[:-1], val_loss, label="Validation")
+
+axs[1].plot(np.linspace(0, epoch[-1], len(batch_loss)), batch_loss, label="Batch Loss")
 
 axs[0].grid()
 axs[1].grid()

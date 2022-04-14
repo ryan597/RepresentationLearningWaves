@@ -8,7 +8,6 @@ import torch.optim as optim
 import torch.distributed as dist
 
 
-
 class PyTorchModel():
     """
     Class for PyTorch models to easily train, validate and test the model.
@@ -85,8 +84,8 @@ class PyTorchModel():
                     self.update_logs("lr", self.learning_rate)
                 """
             # reset losses and gradients on each epoch start
-            accum_loss = 0
-            total_loss = 0
+            accum_loss = torch.Tensor([0]).to(f"cuda:{self.rank}")
+            total_loss = torch.Tensor([0]).to(f"cuda:{self.rank}")
             self.optimizer.zero_grad()
 
             for j, (inputs, nxt) in enumerate(train):
@@ -101,13 +100,16 @@ class PyTorchModel():
                 if j % 50 == 0 and j != 0:
                     self.optimizer.step()
                     self.optimizer.zero_grad()
-                    self.update_logs("batch_loss", accum_loss / 50) ## divide by batch size?
+                    self.update_logs("batch_loss", accum_loss.item() / 50) ## divide by batch size?
                     total_loss += accum_loss
-                    accum_loss = 0
-                    self.show_predictions(outputs, nxt, epoch=i, batch=j)
-            total_loss *= 1 / len(train)
+                    accum_loss = torch.Tensor([0]).to(f"cuda:{self.rank}")
+
+                    if j==50:  ## only once per epoch
+                        self.show_predictions(outputs, nxt, epoch=i, batch=j)
+            dist.reduce(total_loss, dst=0)
+            total_loss *= 1 / (len(train) * world_size )
             if self.rank == 0:
-                self.update_logs("loss", total_loss)
+                self.update_logs("loss", total_loss.item())
                 self.save_model(f"epoch{i}")
                 self.save_logs("outputs/results/training")
                 print(f"Epoch \t {i} finished, model saved", flush=True)
@@ -128,16 +130,18 @@ class PyTorchModel():
 
     def validate_model(self, dataloader):
         with torch.no_grad():
-            valid_loss = 0
+            valid_loss = torch.Tensor([0]).to(f"cuda:{self.rank}")
             for i, (inputs, nxt) in enumerate(dataloader):
                 inputs = inputs.to(self.rank)
                 nxt = nxt.to(self.rank)
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, nxt)
                 valid_loss += loss.item()
-                self.show_predictions(outputs, inputs)
-            valid_loss *= 1/len(dataloader)
-            self.update_logs("val_loss", valid_loss)
+
+            self.show_predictions(outputs, inputs)
+            dist.reduce(valid_loss, dst=0)
+            valid_loss *= 1 / ( len(dataloader) * dist.get_world_size())
+            self.update_logs("val_loss", valid_loss.item())
             return valid_loss
 
     def predict(self, dataloader):
