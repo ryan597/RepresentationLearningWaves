@@ -1,8 +1,8 @@
 {
     "model_name"      : "Frame_prediction",
-    "weights_path"    : "models/weights/epoch0_0.020847044719680522_2022-04-13-20-11-21.pth",
+    "weights_path"    : "models/weights/epoch6_0.012463563891670497_2022-04-14-06-05-49.pth",
 
-    "train_path"      : "data/Innishmann_CC/v1",
+    "train_path"      : "data/Innishmann_CC/v5",
     "results_path"    : "outputs/results",
     "valid_path"      : "data/Innishmann_CC/v2",
     "image_height"    : 256,

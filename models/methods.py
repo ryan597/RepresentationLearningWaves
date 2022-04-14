@@ -104,10 +104,7 @@ class PyTorchModel():
                     self.update_logs("batch_loss", accum_loss / 50) ## divide by batch size?
                     total_loss += accum_loss
                     accum_loss = 0
-
-                    if j==50:  ## only once per epoch
-                        self.show_predictions(outputs, nxt, epoch=i, batch=j)
-            total_loss = dist.reduce(total_loss, dst=0) / world_size
+                    self.show_predictions(outputs, nxt, epoch=i, batch=j)
             total_loss *= 1 / len(train)
             if self.rank == 0:
                 self.update_logs("loss", total_loss)
@@ -133,18 +130,15 @@ class PyTorchModel():
         with torch.no_grad():
             valid_loss = 0
             for i, (inputs, nxt) in enumerate(dataloader):
-
                 inputs = inputs.to(self.rank)
                 nxt = nxt.to(self.rank)
-
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, nxt)
                 valid_loss += loss.item()
-
-            self.show_predictions(outputs, inputs)
-            valid_loss = dist.reduce(valid_loss, dst=0) / world_size
+                self.show_predictions(outputs, inputs)
             valid_loss *= 1/len(dataloader)
-            self.update_logs("val_loss", validation_loss)
+            self.update_logs("val_loss", valid_loss)
+            return valid_loss
 
     def predict(self, dataloader):
         with torch.no_grad():
@@ -158,10 +152,9 @@ class PyTorchModel():
                                2,
                                gridspec_kw={'wspace': 0.1, 'hspace': 0.1},
                                subplot_kw={'xticks': [], 'yticks': []})
-
-        for i, image in enumerate(outputs):
-            ax[i, 0].imshow(image.detach().cpu().numpy()[0])
-            ax[i, 1].imshow(true_batch[0].detach().cpu().numpy()[0])
+        for i, (predimage, groundtruth) in enumerate(zip(outputs, true_batch)):
+            ax[i, 0].imshow(predimage.detach().cpu().numpy()[0])
+            ax[i, 1].imshow(groundtruth.detach().cpu().numpy()[0])
 
             if i == (num_samples - 1):
                 break
@@ -176,7 +169,7 @@ class PyTorchModel():
         else:
             location = "training"
         plt.savefig(f"outputs/figures/{location}/{timestamp}_{epoch}_{batch}.png")
-        plt.show()
+        #plt.show()
         plt.close()
 
     def update_logs(self, key, value):

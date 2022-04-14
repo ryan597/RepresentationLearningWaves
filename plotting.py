@@ -19,13 +19,12 @@ epoch = data_dict['epoch']
 fig, axs = plt.subplots(1, 2, sharey=True)
 
 axs[0].plot(epoch, loss, label="Training")
-axs[0].plot(epoch, val_loss, label="Validation")
-axs[1].plot(np.linspace(0, epoch, len(batch_loss)), batch_loss, label="Batch Loss")
+axs[0].plot(epoch[:-1], val_loss, label="Validation")
+axs[1].plot(np.linspace(0, epoch, len(batch_loss)), batch_loss, label="Batch Loss", c='C0')
 
 axs[0].grid()
 axs[1].grid()
 axs[0].legend()
-axs[1].legend()
 
 axs[0].set_xlabel('Epoch')
 axs[1].set_xlabel('Epoch')
