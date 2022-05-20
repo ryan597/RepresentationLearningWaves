@@ -21,14 +21,34 @@ import torchvision.transforms.functional as TF
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_shape):
+    def __init__(self, path, image_shape, masks=False, input_N=2):
         self.image_shape = image_shape
         self.folder_path = path
+        self.input_N = input_N
         self.folders = glob.glob(self.folder_path + "/wave_*")
-        self.transform = self.get_transform()
-        self.sequences = self.generate_sequences_masks()
-        # self.sequences = self.generate_sequences()
+        if masks:
+            self.sequences = self.generate_sequences_masks()
+        else:
+            self.sequences = self.generate_sequences()
         self.dataset_len = len(self.sequences)
+
+    def __len__(self):
+        return self.dataset_len
+
+    def __getitem__(self, index):
+        p1, p2, p3 = self.sequences[index]
+        image1 = self.fetch_image(p1)
+        image2 = self.fetch_image(p2)
+        image3 = self.fetch_image(p3)
+        image1, image2, image3 = self.get_transform(image1, image2, image3)
+        if self.input_N == 2:
+            input_images = torch.cat((image1, image2), dim=0)
+        else:
+            input_images = torch.cat((image2, image2, image2), dim=0)
+        return (input_images, image3)
+
+    def fetch_image(self, path):
+        return cv2.imread(path, cv2.IMREAD_GRAYSCALE)
 
     def generate_sequences(self):
         sequences = {}
@@ -53,23 +73,7 @@ class InputSequence(Dataset):
                 if exists(img3):
                     sequences[counter] = (img1, img2, img3)
                     counter += 1
-
         return sequences
-
-    def __getitem__(self, index):
-        p1, p2, p3 = self.sequences[index]
-        image1 = self.fetch_image(p1)
-        image2 = self.fetch_image(p2)
-        image3 = self.fetch_image(p3)
-        input_images = torch.cat((image1, image2), dim=0)
-        return (input_images, image3)
-
-    def __len__(self):
-        return self.dataset_len
-
-    def fetch_image(self, path):
-        image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-        return self.transform(image)
 
     def get_transform(self, *args):
         images = []
