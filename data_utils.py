@@ -7,13 +7,14 @@ pipeline, loading and for generating the results.
 from os.path import exists
 import cv2
 import glob
+import random
 import matplotlib.pyplot as plt
 
 # Pytorch imports
 import torch
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms as T
-from torch.utils.data.distributed import DistributedSampler
+import torchvision.transforms as T
+import torchvision.transforms.functional as TF
 
 ###############################################################################
 # Data Pipeline
@@ -26,7 +27,7 @@ class InputSequence(Dataset):
         self.folders = glob.glob(self.folder_path + "/wave_*")
         self.transform = self.get_transform()
         self.sequences = self.generate_sequences_masks()
-        #self.sequences = self.generate_sequences()
+        # self.sequences = self.generate_sequences()
         self.dataset_len = len(self.sequences)
 
     def generate_sequences(self):
@@ -40,7 +41,7 @@ class InputSequence(Dataset):
                 counter += 1
 
         return sequences
-    
+
     def generate_sequences_masks(self):
         sequences = {}
         counter = 0
@@ -54,7 +55,7 @@ class InputSequence(Dataset):
                     counter += 1
 
         return sequences
-    
+
     def __getitem__(self, index):
         p1, p2, p3 = self.sequences[index]
         image1 = self.fetch_image(p1)
@@ -74,7 +75,7 @@ class InputSequence(Dataset):
         images = []
         hflip = random.random()
         i, j, h, w = T.RandomCrop.get_params(
-        args[0], output_size=self.image_shape)
+            args[0], output_size=self.image_shape)
         d = T.RandomRotation.get_params(degrees=45)
         for image in args:
             # Transform to tensor
@@ -95,25 +96,25 @@ class InputSequence(Dataset):
 
 
 def load_data(path, image_shape,
-batch_size=16, shuffle=True):
-dataset = InputSequence(path, image_shape)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-return dataloader
+              batch_size=16, shuffle=True):
+    dataset = InputSequence(path, image_shape)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    return dataloader
 
 
 def show_samples(dataloader, num_samples=5):
-fig, ax = plt.subplots(num_samples,
-3,
-gridspec_kw={'wspace': 0, 'hspace': 0},
-subplot_kw={'xticks': [], 'yticks': []})
+    fig, ax = plt.subplots(num_samples,
+                           3,
+                           gridspec_kw={'wspace': 0, 'hspace': 0},
+                           subplot_kw={'xticks': [], 'yticks': []})
 
-for i, (samples, truth) in enumerate(dataloader):
-# enumerate delivers a batch, just pick the first in the batch
-ax[i, 0].imshow(samples[0][0].numpy())  # first channel
-ax[i, 1].imshow(samples[0][1].numpy())  # second channel
-ax[i, 2].imshow(truth[0][0].numpy())
+    for i, (samples, truth) in enumerate(dataloader):
+        # enumerate delivers a batch, just pick the first in the batch
+        ax[i, 0].imshow(samples[0][0].numpy())  # first channel
+        ax[i, 1].imshow(samples[0][1].numpy())  # second channel
+        ax[i, 2].imshow(truth[0][0].numpy())
 
-if i == (num_samples - 1):
+        if i == (num_samples - 1):
             break
     fig.suptitle("Sample images from dataset")
     # fig.supxlabel("1st, 2nd and 3rd Image from Sequence")
