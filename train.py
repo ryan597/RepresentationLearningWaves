@@ -26,7 +26,7 @@ from models.ResUNet import ResUNet
 from models.methods import PyTorchModel
 
 # Randomness must be disabled for distributed training!
-SEED = 42
+SEED = 24
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False

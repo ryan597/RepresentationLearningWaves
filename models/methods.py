@@ -9,6 +9,8 @@ import torch.optim as optim
 #from focal import sigmoid_focal_loss
 from torchvision.ops import sigmoid_focal_loss
 
+=======
+>>>>>>> cd8cc268c99d5052f115ba2dcaba0141d1613660
 class PyTorchModel():
     """
     Class for PyTorch models to easily train, validate and test the model.
@@ -168,7 +170,7 @@ class PyTorchModel():
         else:
             location = "training"
         plt.savefig(f"outputs/figures/{location}/{timestamp}_{epoch}_{batch}.png")
-        plt.show()
+        #plt.show()
         plt.close()
 
     def update_logs(self, key, value):

@@ -31,7 +31,6 @@ axs[1].plot(np.linspace(0, epoch[-1], len(batch_loss)), batch_loss, label="Batch
 axs[0].grid()
 axs[1].grid()
 axs[0].legend()
-axs[1].legend()
 
 axs[0].set_xlabel('Epoch')
 axs[1].set_xlabel('Epoch')

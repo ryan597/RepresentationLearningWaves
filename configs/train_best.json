@@ -1,11 +1,8 @@
 {
     "model_name"      : "Frame_prediction",
-    "weights_path"    : "epoch10_0.014150393195450306_2022-04-15-07-57-04.pth",
+    "weights_path"    : "models/weights/epoch6_0.012463563891670497_2022-04-14-06-05-49.pth",
 
-    "train_path"      : "/ichec/work/ndmat033a/rsmith/RepresentationLearningWaves/data/v1",
-    "results_path"    : "outputs/results",
-
-    "train_path"      : "data/Innishmann_CC/v1",
+    "train_path"      : "data/Innishmann_CC/v5",
     "results_path"    : "outputs/results",
     "valid_path"      : "data/Innishmann_CC/v2",
     "image_height"    : 256,
@@ -13,7 +10,7 @@
     "imaug"           : false,
 
     "epochs"          : 100,
-    "learning_rate"   : 0.001,
+    "learning_rate"   : 0.00001,
     "criterion"       : "L1Loss",
     "optimizer"       : "Adam",
     "scheduler"       : "ReduceLROnPlateau"
