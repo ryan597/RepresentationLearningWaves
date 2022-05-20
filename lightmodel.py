@@ -79,19 +79,23 @@ class LitModel(pl.LightningModule):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--train_path",
-        help="Path to directory of training datasets")
-    parser.add_argument("-v", "--valid_path",
-        help="Path to directory of validation datasets", default=None)
+    parser.add_argument("--train_path",
+                        help="Path to directory of training datasets")
+    parser.add_argument("--valid_path",
+                        help="Path to directory of validation datasets",
+                        default=None)
     parser.add_argument("--test_path",
-        help="Path to directory of testing datasets", default=None)
+                        help="Path to directory of testing datasets",
+                        default=None)
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
     trainer = pl.Trainer.from_argparse_args(args)
 
-    base_model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained_backbone=False, num_classes=2)
-    base_model.load_state_dict(torch.load("models/weights/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
+    base_model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
+        pretrained_backbone=False, num_classes=2)
+    base_model.load_state_dict(
+        torch.load("models/weights/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
 
     model = LitModel(base_model,
                      0.001,
