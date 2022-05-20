@@ -33,14 +33,21 @@ class LitModel(pl.LightningModule):
             patience=2,
             threshold=0.001,
             verbose=True)
-        return [optimizer], [lr_scheduler]
+        lr_scheduler_config = {
+                "scheduler": lr_scheduler,
+                "monitor": "train_loss",
+                }
+        return {
+                "optimizer": optimizer, 
+                "lr_scheduler_config": lr_scheduler_config
+                }
 
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         # augmentation here?
         outputs = self(inputs)
         loss = self.criterion(outputs, labels)
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -93,7 +100,7 @@ if __name__ == '__main__':
     trainer = pl.Trainer.from_argparse_args(args)
 
     base_model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        pretrained_backbone=False, num_classes=2)
+        pretrained_backbone=False)
     base_model.load_state_dict(
         torch.load("models/weights/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
 
