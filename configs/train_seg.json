@@ -1,9 +1,9 @@
 {
     "model_name"      : "Frame_prediction",
-    "weights_path"    : "epoch10_0.014150393195450306_2022-04-15-07-57-04.pth",
+    "weights_path"    : "models/weights/epoch10_0.014150393195450306_2022-04-15-07-57-04.pthd",
 
     "train_path"      : "/ichec/work/ndmat033a/rsmith/RepresentationLearningWaves/data/v1",
-    "results_path"    : "outputs/results",
+    "results_path"    : "outputs/results/segmentation",
     "valid_path"      : "/ichec/work/ndmat033a/rsmith/RepresentationLearningWaves/data/v2",
     "image_height"    : 256,
     "image_width"     : 512,
@@ -11,7 +11,7 @@
 
     "epochs"          : 100,
     "learning_rate"   : 0.001,
-    "criterion"       : "L1Loss",
+    "criterion"       : "BCEWithLogitsLoss",
     "optimizer"       : "Adam",
     "scheduler"       : "ReduceLROnPlateau"
 }

@@ -4,6 +4,7 @@ pipeline, loading and for generating the results.
 """
 
 # Python Imports
+from os.path import exists
 import cv2
 import glob
 import matplotlib.pyplot as plt
@@ -24,7 +25,8 @@ class InputSequence(Dataset):
         self.folder_path = path
         self.folders = glob.glob(self.folder_path + "/wave_*")
         self.transform = self.get_transform()
-        self.sequences = self.generate_sequences()
+        self.sequences = self.generate_sequences_masks()
+        #self.sequences = self.generate_sequences()
         self.dataset_len = len(self.sequences)
 
     def generate_sequences(self):
@@ -38,7 +40,21 @@ class InputSequence(Dataset):
                 counter += 1
 
         return sequences
+    
+    def generate_sequences_masks(self):
+        sequences = {}
+        counter = 0
+        for folder in self.folders:
+            files = glob.glob(f"{folder}/*.png") +\
+                glob.glob(f"{folder}/*.jpg")
+            for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
+                img3 = "data/segmentation/BW/" + img3[-9:]
+                if exists(img3):
+                    sequences[counter] = (img1, img2, img3)
+                    counter += 1
 
+        return sequences
+    
     def __getitem__(self, index):
         p1, p2, p3 = self.sequences[index]
         image1 = self.fetch_image(p1)
@@ -54,44 +70,50 @@ class InputSequence(Dataset):
         image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
         return self.transform(image)
 
-    def get_transform(self):
-        transform = T.Compose([
-            T.ToTensor(),
-            # T.RandomApply([
-            #    T.ColorJitter(brightness, contrast, saturation, hue)
-            #    T.RandomAffine(degrees, translate, scale, interpolation)
-            #    T.RandomResizedCrop(size)
-            #    T.RandomRotation(degrees)
-            #    T.Normalize(mean, std)
-            # ]),
-            T.Resize(size=self.image_shape)
-        ])
-        return transform
+    def get_transform(self, *args):
+        images = []
+        hflip = random.random()
+        i, j, h, w = T.RandomCrop.get_params(
+        args[0], output_size=self.image_shape)
+        d = T.RandomRotation.get_params(degrees=45)
+        for image in args:
+            # Transform to tensor
+            image = TF.to_tensor(image)
+            # Resize
+            resize = T.Resize(size=self.image_shape)
+            image = resize(image)
+            # Random crop
+            image = TF.crop(image, i, j, h, w)
+            # Random horizontal flipping
+            if hflip > 0.5:
+                image = TF.hflip(image)
+            # Random Rotation
+            image = TF.Rotate(image, angle=d)
+
+            images.append(image)
+        return images
 
 
-def load_data(path, rank, world_size, image_shape,
-              batch_size=16, shuffle=True):
-    dataset = InputSequence(path, image_shape)
-    sampler = DistributedSampler(dataset, rank=rank, num_replicas=world_size,
-                                 shuffle=shuffle)
-    dataloader = DataLoader(dataset, batch_size=batch_size,
-                            sampler=sampler)
-    return dataloader
+def load_data(path, image_shape,
+batch_size=16, shuffle=True):
+dataset = InputSequence(path, image_shape)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+return dataloader
 
 
 def show_samples(dataloader, num_samples=5):
-    fig, ax = plt.subplots(num_samples,
-                           3,
-                           gridspec_kw={'wspace': 0, 'hspace': 0},
-                           subplot_kw={'xticks': [], 'yticks': []})
+fig, ax = plt.subplots(num_samples,
+3,
+gridspec_kw={'wspace': 0, 'hspace': 0},
+subplot_kw={'xticks': [], 'yticks': []})
 
-    for i, (samples, truth) in enumerate(dataloader):
-        # enumerate delivers a batch, just pick the first in the batch
-        ax[i, 0].imshow(samples[0][0].numpy())  # first channel
-        ax[i, 1].imshow(samples[0][1].numpy())  # second channel
-        ax[i, 2].imshow(truth[0][0].numpy())
+for i, (samples, truth) in enumerate(dataloader):
+# enumerate delivers a batch, just pick the first in the batch
+ax[i, 0].imshow(samples[0][0].numpy())  # first channel
+ax[i, 1].imshow(samples[0][1].numpy())  # second channel
+ax[i, 2].imshow(truth[0][0].numpy())
 
-        if i == (num_samples - 1):
+if i == (num_samples - 1):
             break
     fig.suptitle("Sample images from dataset")
     # fig.supxlabel("1st, 2nd and 3rd Image from Sequence")

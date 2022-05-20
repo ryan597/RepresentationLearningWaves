@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-f", "--filename")
 args = parser.parse_args()
 
-with open(f"outputs/results/training/{args.filename}") as f:
+with open(f"outputs/results/{args.filename}") as f:
     data_dict = json.load(f)
 
 loss = data_dict['loss']
@@ -39,6 +39,7 @@ axs[0].set_ylabel('L1 Loss')
 
 axs[0].set_title('Loss')
 axs[1].set_title('Batch Loss')
+plt.savefig("plt.png")
 plt.show()
 
 

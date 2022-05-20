@@ -19,8 +19,6 @@ from os.path import exists
 
 # Pytorch imports
 import torch
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
 
 # Other imports
 import data_utils
@@ -35,16 +33,6 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
 
-def init_process(rank, size, backend="nccl"):
-    os.environ['MASTER_ADDR'] = '127.0.0.1'
-    os.environ['MASTER_PORT'] = '29500'
-    dist.init_process_group(backend, rank=rank, world_size=size)
-
-
-def cleanup():
-    dist.destroy_process_group()
-
-
 ###############################################################################
 # Parse arguments
 if __name__ == '__main__':
@@ -52,16 +40,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Name of the config file inside ./config/")
-    parser.add_argument("-r", "--rank", type=int,
-                        help="Local rank or device number")
     args = parser.parse_args()
 
     # config variables
     with open("configs/" + args.config + ".json", 'r') as config_json:
         config = json.load(config_json)
     
-    if (args.rank == 0):
-        print(json.dumps(config, indent=4), flush=True)
+    print(json.dumps(config, indent=4), flush=True)
 
     model_name = config["model_name"]
     weights_path = config["weights_path"]
@@ -78,18 +63,9 @@ if __name__ == '__main__':
     optimizer = getattr(torch.optim, config["optimizer"])
     scheduler = getattr(torch.optim.lr_scheduler, config["scheduler"])
 
-    # Must run the script with this many different ranks
-    # If world_size=2, then you must run in the terminal
-    #       python main.py -c config -r 0 &
-    #       python main.py -c config -r 1
-    # The process initialiser halts the program until all processes have joined
-    world_size = torch.cuda.device_count()
-    rank = args.rank
-    init_process(rank, world_size)
-
     # Loading datasets
-    train_data = data_utils.load_data(train_path, rank, world_size, (image_height, image_width), batch_size=10)
-    valid_data = data_utils.load_data(valid_path, rank, world_size, (image_height, image_width), batch_size=10)
+    train_data = data_utils.load_data(train_path, (image_height, image_width), batch_size=10, shuffle=True)
+    valid_data = data_utils.load_data(valid_path, (image_height, image_width), batch_size=10, shuffle=True)
     #data_utils.show_samples(train_data)
 
     # Loading model
@@ -98,16 +74,11 @@ if __name__ == '__main__':
                     block_sizes=[32, 64, 128, 256, 512, 1024],
                     depths=[2, 3, 5, 3, 2])
 
-    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)  ## Sync BatchNorm for MultiGPU
-    model = model.to(f"cuda:{rank}")
-    DPPmodel = DDP(model, device_ids=[rank])
+    model = model.to("cuda:0")
     if exists(weights_path):
-        DPPmodel.load_state_dict(torch.load(weights_path, map_location=f"cuda:{rank}"))
+        model.load_state_dict(torch.load(weights_path, map_location="cuda:0"))
 
-
-
-    model = PyTorchModel(DPPmodel,
-                         rank=rank,
+    model = PyTorchModel(model,
                          epochs=epochs,
                          learning_rate=learning_rate,
                          criterion=criterion,
@@ -116,15 +87,12 @@ if __name__ == '__main__':
                          mode="min",
                          factor=0.1,
                          patience=2,
-                         threshold=0.001,
+                         threshold=0.0001,
                          verbose=True)  # scheduler kwarg
 
     # Training model
-    with DPPmodel.join():
-        logs = model.train_model(train_data, valid=valid_data)
+    logs = model.train_model(train_data, valid=valid_data)
 
-    if rank == 0:
-        model.save_model(model_name)
-        model.save_logs(results_path)
+    model.save_model(model_name)
+    model.save_logs(results_path)
 
-    cleanup()

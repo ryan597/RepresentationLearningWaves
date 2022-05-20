@@ -3,6 +3,8 @@ data/**
 outputs/**
 models/weights/**
 
+*.png
+
 # ignore ichec stuff
 ICHEC_README.md
 slurm*
