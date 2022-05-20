@@ -79,8 +79,8 @@ class InputSequence(Dataset):
         images = []
         hflip = random.random()
         i, j, h, w = T.RandomCrop.get_params(
-            args[0], output_size=self.image_shape)
-        d = T.RandomRotation.get_params(degrees=45)
+            TF.to_tensor(args[0]), output_size=self.image_shape)
+        d = T.RandomRotation.get_params(degrees=[-45, 45])
         for image in args:
             # Transform to tensor
             image = TF.to_tensor(image)
@@ -93,16 +93,16 @@ class InputSequence(Dataset):
             if hflip > 0.5:
                 image = TF.hflip(image)
             # Random Rotation
-            image = TF.Rotate(image, angle=d)
+            image = TF.rotate(image, angle=d)
 
             images.append(image)
         return images
 
 
 def load_data(path, image_shape,
-              batch_size=16, shuffle=True):
-    dataset = InputSequence(path, image_shape)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+              batch_size=16, shuffle=True, **kwargs):
+    dataset = InputSequence(path, image_shape, kwargs)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=8, persistent_workers=True)
     return dataloader
 
 

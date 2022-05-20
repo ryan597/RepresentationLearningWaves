@@ -19,7 +19,7 @@ class LitModel(pl.LightningModule):
         self.image_shape = image_shape
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
         return self.model(x)
@@ -39,7 +39,7 @@ class LitModel(pl.LightningModule):
                 }
         return {
                 "optimizer": optimizer, 
-                "lr_scheduler_config": lr_scheduler_config
+                "lr_scheduler": lr_scheduler_config
                 }
 
     def training_step(self, batch, batch_idx):
@@ -52,18 +52,20 @@ class LitModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         val_loss = 0
-        self.log('val_loss', val_loss)
+        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         test_loss = 0
-        self.log("test_loss", test_loss)
+        self.log("test_loss", test_loss, on_epoch=True, sync_dist=True)
 
     def train_dataloader(self):
         return data_utils.load_data(
             path=self.train_path,
             image_shape=self.image_shape,
             batch_size=self.batch_size,
-            shuffle=self.shuffle
+            shuffle=self.shuffle,
+            masks=True,
+            input_N=1
         )
 
     def val_dataloader(self):
@@ -71,7 +73,9 @@ class LitModel(pl.LightningModule):
             path=self.valid_path,
             image_shape=self.image_shape,
             batch_size=self.batch_size,
-            shuffle=self.shuffle
+            shuffle=False,
+            masks=True,
+            input_N=1
         )
 
     def test_dataloader(self):
@@ -79,7 +83,9 @@ class LitModel(pl.LightningModule):
             path=self.valid_path,
             image_shape=self.image_shape,
             batch_size=self.batch_size,
-            shuffle=self.shuffle
+            shuffle=False,
+            masks=True,
+            input_N=1
         )
 
 
