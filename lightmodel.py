@@ -2,7 +2,10 @@ import argparse
 import pytorch_lightning as pl
 import torch
 import torchvision
+from torchvision.ops import sigmoid_focal_loss
 import data_utils
+
+
 
 # Randomness must be disabled for distributed training!
 pl.utilities.seed.seed_everything(42)
@@ -16,9 +19,12 @@ class LitModel(pl.LightningModule):
         self.lr = lr
         self.train_path = train_path
         self.valid_path = valid_path
+        self.masks=False
+        self.input_N=1
         self.image_shape = image_shape
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.criterion = sigmoid_focal_loss 
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
@@ -46,7 +52,7 @@ class LitModel(pl.LightningModule):
         inputs, labels = batch
         # augmentation here?
         outputs = self(inputs)
-        loss = self.criterion(outputs, labels)
+        loss = self.criterion(outputs, labels, reduction='sum')
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
@@ -64,8 +70,8 @@ class LitModel(pl.LightningModule):
             image_shape=self.image_shape,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
-            masks=True,
-            input_N=1
+            masks=self.masks,
+            input_N=self.input_N
         )
 
     def val_dataloader(self):
@@ -74,8 +80,8 @@ class LitModel(pl.LightningModule):
             image_shape=self.image_shape,
             batch_size=self.batch_size,
             shuffle=False,
-            masks=True,
-            input_N=1
+            masks=self.masks,
+            input_N=self.input_N
         )
 
     def test_dataloader(self):
@@ -84,8 +90,8 @@ class LitModel(pl.LightningModule):
             image_shape=self.image_shape,
             batch_size=self.batch_size,
             shuffle=False,
-            masks=True,
-            input_N=1
+            masks=self.masks,
+            input_N=self.input_N
         )
 
 

@@ -102,7 +102,7 @@ class InputSequence(Dataset):
 def load_data(path, image_shape,
               batch_size=16, shuffle=True, **kwargs):
     dataset = InputSequence(path, image_shape, kwargs)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=8, persistent_workers=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=80, persistent_workers=True)
     return dataloader
 
 
