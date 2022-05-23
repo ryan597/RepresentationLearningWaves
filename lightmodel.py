@@ -28,7 +28,7 @@ class LitModel(pl.LightningModule):
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
-        return self.model(x)
+        return self.model(x)['out']
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
@@ -57,7 +57,7 @@ class LitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        val_loss = 0
+        val_loss = 0.0
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
@@ -111,10 +111,9 @@ if __name__ == '__main__':
 
     trainer = pl.Trainer.from_argparse_args(args)
 
-    base_model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        pretrained_backbone=False)
-    base_model.load_state_dict(
-        torch.load("models/weights/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
+    base_model = torchvision.models.segmentation.fcn_resnet50(pretrained_backbone=True, num_classes=2)
+    #base_model.load_state_dict(
+     #   torch.load("models/weights/fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
 
     model = LitModel(base_model,
                      0.001,

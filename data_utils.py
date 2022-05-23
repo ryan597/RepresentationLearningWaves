@@ -21,7 +21,7 @@ import torchvision.transforms.functional as TF
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_shape, masks=False, input_N=2):
+    def __init__(self, path, image_shape, masks=False, input_N=1):
         self.image_shape = image_shape
         self.folder_path = path
         self.input_N = input_N
@@ -45,7 +45,13 @@ class InputSequence(Dataset):
             input_images = torch.cat((image1, image2), dim=0)
         else:
             input_images = torch.cat((image2, image2, image2), dim=0)
-        return (input_images, image3)
+            normal = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            input_images = normal(input_images)
+        # Change label to binary mask with channels=2
+        label = torch.zeros([2, self.image_shape[0], self.image_shape[1]])
+        label[0] = (image3 - 1) * (-1)
+        label[1] = image3
+        return (input_images, label)
 
     def fetch_image(self, path):
         return cv2.imread(path, cv2.IMREAD_GRAYSCALE)
@@ -84,9 +90,6 @@ class InputSequence(Dataset):
         for image in args:
             # Transform to tensor
             image = TF.to_tensor(image)
-            # Resize
-            resize = T.Resize(size=self.image_shape)
-            image = resize(image)
             # Random crop
             image = TF.crop(image, i, j, h, w)
             # Random horizontal flipping
@@ -94,6 +97,9 @@ class InputSequence(Dataset):
                 image = TF.hflip(image)
             # Random Rotation
             image = TF.rotate(image, angle=d)
+            # Resize
+            resize = T.Resize(size=self.image_shape)
+            #image = resize(image)
 
             images.append(image)
         return images
@@ -102,7 +108,7 @@ class InputSequence(Dataset):
 def load_data(path, image_shape,
               batch_size=16, shuffle=True, **kwargs):
     dataset = InputSequence(path, image_shape, kwargs)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=80, persistent_workers=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=8, persistent_workers=True)
     return dataloader
 
 
