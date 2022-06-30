@@ -12,14 +12,52 @@ import data_utils
 # Randomness must be disabled for distributed training!
 pl.utilities.seed.seed_everything(42)
 
+class Res50(nn.Module):
+    def __init__(self, num_outputs):
+        super().__init__()
+        backbone = torchvision.models.resnet.resnet50(
+            pretrained=False, replace_stride_with_dilation=[False, True, True])
+        # resnet50-0676ba61.pth # resnet18-f37072fd.pth
+        backbone.load_state_dict(
+            torch.load("models/weights/resnet50-0676ba61.pth"))
+
+        self.backbone = nn.Sequential(*list(backbone.children())[:-2])
+        ct = 0
+        for child in self.backbone.children():
+            ct += 1
+            if ct < 7:
+                for param in child.parameters():
+                    param.requires_grad = False
+        self.fcnhead = FCN.FCNHead(2048, num_outputs)
+
+    def forward(self, x):
+        img1 = x[:, 0]
+        img2 = x[:, 1]
+        x1 = self.backbone(img1)
+        x2 = self.backbone(img2)
+        return self.fcnhead(torch.cat((x1, x2), dim=1))
+
+
+
+
 class ResUNet(nn.Module):
     def __init__(self, num_outputs):
         super().__init__()
-        backbone = torchvision.models.resnet.resnet50(pretrained=False, replace_stride_with_dilation=[False, True, True])
+        backbone = torchvision.models.resnet.resnet50(
+            pretrained=False, replace_stride_with_dilation=[False, True, True])
+        # resnet50-0676ba61.pth # resnet18-f37072fd.pth
         backbone.load_state_dict(
-            torch.load("models/weights/resnet50-0676ba61.pth")) # resnet50-0676ba61.pth # resnet18-f37072fd.pth
+            torch.load("models/weights/resnet50-0676ba61.pth"))
 
         backbone = nn.Sequential(*list(backbone.children())[:-2])
+        ct = 0
+        for child in backbone.children():
+            ct += 1
+            if ct < 7:
+                for param in child.parameters():
+                    param.requires_grad = False
+        self.fcnhead = FCN.FCNHead(2048, num_outputs)
+
         self.backbone1 = backbone  # two networks that aren't sharing weights
         self.backbone2 = backbone
         self.fcnhead = FCN.FCNHead(4096, num_outputs)
@@ -30,7 +68,6 @@ class ResUNet(nn.Module):
         x1 = self.backbone1(img1)
         x2 = self.backbone2(img2)
         return self.fcnhead(torch.cat((x1, x2), dim=1))
-
 
 
 class LitModel(pl.LightningModule):
@@ -46,7 +83,7 @@ class LitModel(pl.LightningModule):
         self.image_shape = image_shape
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.criterion = sigmoid_focal_loss 
+        self.criterion = sigmoid_focal_loss
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
@@ -66,7 +103,7 @@ class LitModel(pl.LightningModule):
                 "monitor": "train_loss",
                 }
         return {
-                "optimizer": optimizer, 
+                "optimizer": optimizer,
                 "lr_scheduler": lr_scheduler_config
                 }
 
@@ -74,24 +111,27 @@ class LitModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         loss = self.criterion(outputs, labels, reduction='mean')
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_step=True, on_epoch=True,
+                 prog_bar=True, logger=True)
         if batch_idx == 2:
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
         val_loss = self.criterion(outputs, labels, reduction='mean')
-        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
+                 prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, location, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
-                               4,  # input, ground truth, prediction, difference | cols
-                               gridspec_kw={'wspace':0.1, 'hspace':0.1},
-                               subplot_kw={'xticks':[], 'yticks':[]})
-        for i, [input_image, pred_image, gt_image] in enumerate(zip(inputs, outputs, labels)):
+                               4,  # input, ground truth, pred, diff | cols
+                               gridspec_kw={'wspace': 0.1, 'hspace': 0.1},
+                               subplot_kw={'xticks': [], 'yticks': []})
+        for i, [input_image, pred_image, gt_image] in enumerate(zip(
+                inputs, outputs, labels)):
             ax[i, 0].imshow(input_image.detach().cpu().numpy()[0], cmap='gray')
             ax[i, 1].imshow(gt_image.detach().cpu().numpy()[1], cmap='gray')
             ax[i, 2].imshow(pred_image.detach().cpu().numpy()[1], cmap='gray')
@@ -141,6 +181,7 @@ class LitModel(pl.LightningModule):
             input_N=self.input_N
         )
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -162,32 +203,31 @@ if __name__ == '__main__':
     args = parser.parse_args()
     trainer = pl.Trainer.from_argparse_args(args)
 
-
     if args.masks == 'True':
         outputs = 2
-    else: 
+    else:
         outputs = 1
 
     # compute nodes have no internet access so manually load weights
-    if args.backbone=='resnet50':
+    if args.backbone == 'resnet50':
         backbone = torchvision.models.resnet.resnet50(pretrained=False)
         backbone.load_state_dict(
             torch.load("models/weights/resnet50-0676ba61.pth"))
 
         ct = 0
         for child in backbone.children():
-            #ct += 1
-            #if ct < 8:
+            # ct += 1
+            # if ct < 8:
             for param in child.parameters():
                 param.requires_grad = False
         model = FCN._fcn_resnet(backbone=backbone, num_classes=2, aux=True)
-   
-    elif args.backbone=='resnet18':
-        
+
+    elif args.backbone == 'resnet18':
+
         model = ResUNet(outputs)
 
     if args.checkpoint:
-        model = model.load_from_checkpoint(checkpoint)
+        model = model.load_from_checkpoint(args.checkpoint)
 
     else:
         model = LitModel(model,
