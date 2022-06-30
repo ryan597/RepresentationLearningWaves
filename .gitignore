@@ -1,7 +1,7 @@
 # ignore folders for now
 data/**
 outputs/**
-models/weights/**
+weights/**
 
 *.png
 
