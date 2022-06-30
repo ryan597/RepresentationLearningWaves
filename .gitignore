@@ -4,6 +4,7 @@ outputs/**
 weights/**
 
 *.png
+*.MOV
 
 # ignore ichec stuff
 ICHEC_README.md
