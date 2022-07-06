@@ -28,7 +28,7 @@ class LightningModel(pl.LightningModule):
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
-        return self.model(x)['out']
+        return self.model(x)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
