@@ -24,7 +24,7 @@ class LightningModel(pl.LightningModule):
         self.dual = dual
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.criterion = sigmoid_focal_loss if masks else nn.L1Loss
+        self.criterion = sigmoid_focal_loss if masks else nn.L1Loss()
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
