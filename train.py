@@ -52,7 +52,7 @@ if __name__ == '__main__':
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
                                                     base_model=model,
-                                                    lr=int(args.lr),
+                                                    lr=float(args.lr),
                                                     train_path=args.train_path,
                                                     valid_path=args.valid_path,
                                                     image_shape=(512, 1024),
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     else:
         model = LightningModel(base_model=model,
-                               lr=int(args.lr),
+                               lr=float(args.lr),
                                train_path=args.train_path,
                                valid_path=args.valid_path,
                                image_shape=(512, 1024),
