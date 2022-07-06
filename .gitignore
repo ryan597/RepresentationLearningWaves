@@ -8,6 +8,7 @@ weights/**
 
 # ignore ichec stuff
 slurm*
+*.sh
 
 *.pyc
 __pycache__/**

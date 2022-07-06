@@ -12,13 +12,13 @@ class ResNet_backbone(nn.Module):
         self.dual = dual
         if layers == 50:
             backbone = TVmodels.resnet.resnet50(
-                pretrained=False,
+                weights=None,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
             backbone = TVmodels.resnet.resnet18(
-                pretrained=False,
+                weights=None,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet18-f37072fd.pth"))

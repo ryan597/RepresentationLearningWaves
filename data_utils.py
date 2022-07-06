@@ -19,6 +19,7 @@ class InputSequence(Dataset):
     def __init__(self, path, image_shape, masks=False, dual=False):
         self.image_shape = image_shape
         self.folder_path = path
+        self.masks = masks
         self.dual = dual
         self.folders = glob.glob(self.folder_path + "/wave_*")
         if masks:
@@ -43,6 +44,9 @@ class InputSequence(Dataset):
             normal = T.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
             input_images = normal(input_images)
+
+        if self.masks:
+            image3 = torch.stack((image3, 1 - image3), dim=0)
         return (input_images, image3)
 
     def fetch_image(self, path):
@@ -66,7 +70,7 @@ class InputSequence(Dataset):
             files = glob.glob(f"{folder}/*.png")
             files = sorted(files)
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                img3 = "data/segmentation/BW/" + img3[-9:]
+                img3 = "data/masks/BW/" + img3[-9:]
                 if exists(img3):
                     sequences[counter] = (img1, img2, img3)
                     counter += 1
@@ -103,7 +107,7 @@ def load_data(path, image_shape,
               batch_size=16, shuffle=True, **kwargs):
     dataset = InputSequence(path, image_shape, kwargs)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=40, persistent_workers=True)
+                            num_workers=8, persistent_workers=False)
     return dataloader
 
 
