@@ -77,7 +77,7 @@ class InputSequence(Dataset):
         hflip = random.random()
         vflip = random.random()
         i, j, h, w = T.RandomCrop.get_params(
-            TF.to_tensor(args[0]), output_size=self.image_shape)
+            TF.to_tensor(args[0]), self.image_shape)
         d = T.RandomRotation.get_params(degrees=[-30, 30])
         for image in args:
             # Transform to tensor
@@ -95,8 +95,7 @@ class InputSequence(Dataset):
             # Resize
             resize = T.Resize(size=self.image_shape)
             image = resize(image)
-
-            images.append(image)
+            images.append(image[0])  # tensors have been formated to [1, x, y]
         return images
 
 
