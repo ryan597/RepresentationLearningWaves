@@ -37,9 +37,9 @@ class InputSequence(Dataset):
         image3 = self.fetch_image(p3)
         image1, image2, image3 = self.transform(image1, image2, image3)
         if self.dual:
-            input_images = torch.cat((image1, image2), dim=0)
+            input_images = torch.stack((image1, image2), dim=0)
         else:
-            input_images = torch.cat((image2, image2, image2), dim=0)
+            input_images = torch.stack((image2, image2, image2), dim=0)
             normal = T.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
             input_images = normal(input_images)
