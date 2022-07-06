@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torchvision.models as TVmodels
@@ -23,24 +25,18 @@ class ResNet_backbone(nn.Module):
         # Remove the final two layers (avgpool and fc (fully connected))
         backbone = nn.Sequential(*list(backbone.children())[:-2])
         count = 0  # Freeze early layers
+        for child in backbone.children():
+            count += 1
+            if count < freeze:
+                for param in child.parameters():
+                    param.requires_grad = False
 
         if not dual:
-            self.fcnhead = FCN.FCNHead(2048, 1)
             self.backbone = backbone
-            for child in self.backbone.children():
-                count += 1
-                if count < freeze:
-                    for param in child.parameters():
-                        param.requires_grad = False
+            self.fcnhead = FCN.FCNHead(2048, 1)
         else:
-            self.backbone1 = backbone
-            self.backbone2 = backbone
-            for child1, child2 in zip(self.backbone1.children(), self.backbone2.children()):
-                count += 1
-                if count < freeze:
-                    for param1, param2 in zip(child1.parameters(), child2.parameters()):
-                        param1.requires_grad = False
-                        param2.requires_grad = False
+            self.backbone1 = copy.deepcopy(backbone)
+            self.backbone2 = copy.deepcopy(backbone)
             self.fcnhead = FCN.FCNHead(4096, 1)
 
     def forward(self, x):
