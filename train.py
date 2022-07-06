@@ -46,7 +46,7 @@ if __name__ == '__main__':
     if args.backbone == "resnet":
         model = ResNet_backbone(layers=int(args.layers),
                                 freeze=5,
-                                dual=args.dual)
+                                dual=bool(args.dual))
     # ResUNet model...
 
     if args.checkpoint:
@@ -58,8 +58,8 @@ if __name__ == '__main__':
                                                     image_shape=(512, 1024),
                                                     batch_size=10,
                                                     shuffle=True,
-                                                    masks=args.masks,
-                                                    dual=args.dual)
+                                                    masks=bool(args.masks),
+                                                    dual=bool(args.dual))
 
     else:
         model = LightningModel(base_model=model,
@@ -69,7 +69,7 @@ if __name__ == '__main__':
                                image_shape=(512, 1024),
                                batch_size=10,
                                shuffle=True,
-                               masks=args.masks,
-                               dual=args.dual)
+                               masks=bool(args.masks),
+                               dual=bool(args.dual))
 
     trainer.fit(model)
