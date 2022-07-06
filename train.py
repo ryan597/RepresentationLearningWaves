@@ -22,13 +22,13 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument("--lr",
                         help="Initial learning rate",
-                        default=0.001)
+                        default=0.001, type=int)
     parser.add_argument("--backbone",
                         help="Backbone of model, resnet or resunet",
                         default="resnet")
     parser.add_argument("--layers",
                         help="How many layers of ResNet to use (18 or 50)",
-                        default=50)
+                        default=50, type=int)
     parser.add_argument("--masks",
                         help="Train for segmentation or frame prediciton",
                         default=False)
