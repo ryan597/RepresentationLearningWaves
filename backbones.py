@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 import torchvision.models as TVmodels
@@ -29,12 +31,12 @@ class ResNet_backbone(nn.Module):
                 for param in child.parameters():
                     param.requires_grad = False
         if not dual:
-            self.backbone = backbone
+            self.backbone = copy.deepcopy(backbone)
             self.fcnhead = FCN.FCNHead(2048, 1)
 
         else:
-            self.backbone1 = backbone
-            self.backbone2 = backbone
+            self.backbone1 = copy.deepcopy(backbone)
+            self.backbone2 = copy.deepcopy(backbone)
             self.fcnhead = FCN.FCNHead(4096, 1)
 
     def forward(self, x):
