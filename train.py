@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     else:
         model = LightningModel(base_model=model,
-                               int(lr=args.lr),
+                               lr=int(args.lr),
                                train_path=args.train_path,
                                valid_path=args.valid_path,
                                image_shape=(512, 1024),
