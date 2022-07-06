@@ -22,13 +22,13 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument("--lr",
                         help="Initial learning rate",
-                        default=0.001, type=int)
+                        default=0.001)
     parser.add_argument("--backbone",
                         help="Backbone of model, resnet or resunet",
                         default="resnet")
     parser.add_argument("--layers",
                         help="How many layers of ResNet to use (18 or 50)",
-                        default=50, type=int)
+                        default=50)
     parser.add_argument("--masks",
                         help="Train for segmentation or frame prediciton",
                         default=False)
@@ -44,15 +44,15 @@ if __name__ == '__main__':
     trainer = pl.Trainer.from_argparse_args(args)
 
     if args.backbone == "resnet":
-        model = ResNet_backbone(layers=args.layers,
-                                freeze=args.freeze,
+        model = ResNet_backbone(layers=int(args.layers),
+                                freeze=5,
                                 dual=args.dual)
     # ResUNet model...
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
                                                     base_model=model,
-                                                    lr=args.lr,
+                                                    lr=int(args.lr),
                                                     train_path=args.train_path,
                                                     valid_path=args.valid_path,
                                                     image_shape=(512, 1024),
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     else:
         model = LightningModel(base_model=model,
-                               lr=args.lr,
+                               int(lr=args.lr),
                                train_path=args.train_path,
                                valid_path=args.valid_path,
                                image_shape=(512, 1024),
