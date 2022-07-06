@@ -43,10 +43,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     trainer = pl.Trainer.from_argparse_args(args)
 
+    masks = True if args.masks == "True" else False
+    dual = True if args.dual == "True" else False
+
     if args.backbone == "resnet":
         model = ResNet_backbone(layers=int(args.layers),
                                 freeze=5,
-                                dual=bool(args.dual))
+                                dual=dual)
     # ResUNet model...
 
     if args.checkpoint:
@@ -58,8 +61,8 @@ if __name__ == '__main__':
                                                     image_shape=(512, 1024),
                                                     batch_size=10,
                                                     shuffle=True,
-                                                    masks=bool(args.masks),
-                                                    dual=bool(args.dual))
+                                                    masks=masks,
+                                                    dual=dual)
 
     else:
         model = LightningModel(base_model=model,
@@ -69,7 +72,7 @@ if __name__ == '__main__':
                                image_shape=(512, 1024),
                                batch_size=10,
                                shuffle=True,
-                               masks=bool(args.masks),
-                               dual=bool(args.dual))
+                               masks=masks,
+                               dual=dual)
 
     trainer.fit(model)
