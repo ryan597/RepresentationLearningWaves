@@ -24,6 +24,8 @@ if __name__ == '__main__':
     parser.add_argument("--lr",
                         help="Initial learning rate",
                         default=0.001)
+    parser.add_argument("--batch_size",
+                        help="Number of samples to include in each batch")
     parser.add_argument("--backbone",
                         help="Backbone of model, resnet or resunet",
                         default="resnet")
@@ -46,27 +48,36 @@ if __name__ == '__main__':
     args = parser.parse_args()
     trainer = pl.Trainer.from_argparse_args(args)
 
+    # shell passes all values as strings
     masks = True if args.masks == "True" else False
     dual = True if args.dual == "True" else False
+    lr = float(args.lr)
     batch_size = int(args.batch_size)
+    image_shape = (512, 1024)
 
-    if args.backbone == "resnet":
-        model = ResNet_backbone(layers=int(args.layers),
-                                freeze=5,
-                                dual=dual)
+    match args.backbone:
+        case "resnet":
+            model = ResNet_backbone(layers=int(args.layers),
+                                    freeze=5,
+                                    dual=dual)
     # ResUNet model...
-
-    # BASELINE
-    model = fcn_resnet50(weights=None,
-                         num_classes=2)
+        case "baseline":
+            model = fcn_resnet50(weights=None,
+                                 num_classes=2)
+            count = 0
+            for child in model.children():
+                count += 1
+                if count < 7:
+                    for param in child.parameters:
+                        param.requires_grad = False
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
                                                     base_model=model,
-                                                    lr=float(args.lr),
+                                                    lr=lr,
                                                     train_path=args.train_path,
                                                     valid_path=args.valid_path,
-                                                    image_shape=(512, 1024),
+                                                    image_shape=image_shape,
                                                     batch_size=batch_size,
                                                     shuffle=True,
                                                     masks=masks,
@@ -74,10 +85,10 @@ if __name__ == '__main__':
 
     else:
         model = LightningModel(base_model=model,
-                               lr=float(args.lr),
+                               lr=lr,
                                train_path=args.train_path,
                                valid_path=args.valid_path,
-                               image_shape=(512, 1024),
+                               image_shape=image_shape,
                                batch_size=batch_size,
                                shuffle=True,
                                masks=masks,
