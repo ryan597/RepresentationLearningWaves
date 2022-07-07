@@ -37,14 +37,16 @@ class InputSequence(Dataset):
         image2 = self.fetch_image(p2)
         image3 = self.fetch_image(p3)
         image1, image2, image3 = self.transform(image1, image2, image3)
-        if self.dual:
-            input_images = torch.stack((image1, image2), dim=0)
-        else:
-            input_images = torch.stack((image2, image2, image2), dim=0)
-            normal = T.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-            input_images = normal(input_images)
+        normal = T.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])
 
+        if self.dual:  # 6 channels
+            image1 = normal(torch.stack((image1, image1, image1), dim=0))
+            image2 = normal(torch.stack((image2, image2, image2), dim=0))
+            input_images = torch.cat((image1, image2), dim=0)
+        else:  # 3 channels
+            input_images = torch.stack((image2, image2, image2), dim=0)
+            input_images = normal(input_images)
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
         return (input_images, image3)
@@ -103,11 +105,11 @@ class InputSequence(Dataset):
         return images
 
 
-def load_data(path, image_shape,
-              batch_size=16, shuffle=True, **kwargs):
-    dataset = InputSequence(path, image_shape, kwargs)
+def load_data(path, image_shape, batch_size=10, shuffle=True,
+              masks=False, dual=False):
+    dataset = InputSequence(path, image_shape, masks, dual)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=8, persistent_workers=False)
+                            num_workers=8, persistent_workers=True)
     return dataloader
 
 
