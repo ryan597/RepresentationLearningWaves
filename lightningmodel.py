@@ -29,7 +29,7 @@ class LightningModel(pl.LightningModule):
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
-        return self.model(x)['out']
+        return self.model(x)
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
@@ -38,7 +38,7 @@ class LightningModel(pl.LightningModule):
             mode="min",
             factor=0.5,
             patience=10,
-            threshold=0.0001,
+            threshold=0.00001,
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
@@ -75,8 +75,10 @@ class LightningModel(pl.LightningModule):
         for i, [input_image, pred_image, gt_image] in enumerate(zip(
                 inputs, outputs, labels)):
             input_image = input_image.detach().cpu().numpy()[0]
-            gt_image = gt_image.detach().cpu().numpy()[1]
-            pred_image = pred_image.detach().cpu().numpy()[1]
+            gt_image = gt_image.detach().cpu().numpy()[0]
+            pred_image = pred_image.detach().cpu().numpy()[0]
+            if self.masks:  # Threshold if pred should be a mask
+                pred_image = pred_image >= 0.3
             ax[i, 0].imshow(input_image, cmap='gray')
             ax[i, 1].imshow(gt_image, cmap='gray')
             ax[i, 2].imshow(pred_image, cmap='gray')
