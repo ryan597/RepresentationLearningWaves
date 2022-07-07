@@ -29,8 +29,6 @@ if __name__ == '__main__':
     parser.add_argument("--backbone",
                         help="Backbone of model, resnet or resunet",
                         default="resnet")
-    parser.add_argument("--batch_size",
-                        help="Number of samples in each batch")
     parser.add_argument("--layers",
                         help="How many layers of ResNet to use (18 or 50)",
                         default=50)
