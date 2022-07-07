@@ -1,5 +1,6 @@
 import argparse
 
+import torch
 import pytorch_lightning as pl
 from torchvision.models.segmentation import fcn_resnet50
 
@@ -51,23 +52,31 @@ if __name__ == '__main__':
     dual = True if args.dual == "True" else False
     lr = float(args.lr)
     batch_size = int(args.batch_size)
-    image_shape = (512, 1024)
+    image_shape = (256, 512)
+    layers = int(args.layers)
 
     match args.backbone:
+        # BASELINE MODEL : 1 input image, no pretraining
+        case "baseline":
+            model = fcn_resnet50(pretrained=False,
+                                 num_classes=2,
+                                 pretrained_backbone=False)
+            state_dict = torch.load("weights/fcn_resnet50_coco-1167a1af.pth")
+            # Pretrained classifier expects 21 classes,
+            # remove and ignore missing keys
+            for key in list(state_dict.keys()):
+                if "classifier" in key:
+                    del state_dict[key]
+            model.load_state_dict(state_dict, strict=False)
+            for child in model.backbone.children():
+                for param in child.parameters():
+                    param.requires_grad = False
+        # RESNET_BACKBONE : 2 input images, no pre-training
         case "resnet":
-            model = ResNet_backbone(layers=int(args.layers),
-                                    freeze=5,
+            model = ResNet_backbone(layers=layers,
+                                    freeze=10,
                                     dual=dual)
     # ResUNet model...
-        case "baseline":
-            model = fcn_resnet50(weights=None,
-                                 num_classes=2)
-            count = 0
-            for child in model.children():
-                count += 1
-                if count < 7:
-                    for param in child.parameters:
-                        param.requires_grad = False
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
