@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
-import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
 
 from torchvision.ops import sigmoid_focal_loss
@@ -24,11 +24,12 @@ class LightningModel(pl.LightningModule):
         self.dual = dual
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.criterion = sigmoid_focal_loss if masks else nn.L1Loss()
+        # F.smooth_l1_loss
+        self.criterion = sigmoid_focal_loss if masks else F.l1_loss
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
-        return self.model(x)
+        return self.model(x)['out']
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.lr)
@@ -41,7 +42,7 @@ class LightningModel(pl.LightningModule):
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
-                "monitor": "train_loss_on_epoch",
+                "monitor": "train_loss",
                 }
         return {
                 "optimizer": optimizer,
@@ -51,10 +52,7 @@ class LightningModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        if self.masks:
-            loss = self.criterion(outputs, labels, reduction='mean')
-        else:
-            loss = self.criterion(outputs, labels)
+        loss = self.criterion(outputs, labels, reduction='mean')
         self.log("train_loss", loss, on_step=True, on_epoch=True,
                  prog_bar=True, logger=True)
         if batch_idx == 2:
@@ -64,10 +62,7 @@ class LightningModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        if self.masks:
-            val_loss = self.criterion(outputs, labels, reduction='mean')
-        else:
-            val_loss = self.criterion(outputs, labels)
+        val_loss = self.criterion(outputs, labels, reduction='mean')
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)

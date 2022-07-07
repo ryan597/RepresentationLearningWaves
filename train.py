@@ -1,6 +1,7 @@
 import argparse
 
 import pytorch_lightning as pl
+from torchvision.models.segmentation import fcn_resnet50
 
 from backbones import ResNet_backbone
 from lightningmodel import LightningModel
@@ -26,6 +27,8 @@ if __name__ == '__main__':
     parser.add_argument("--backbone",
                         help="Backbone of model, resnet or resunet",
                         default="resnet")
+    parser.add_argument("--batch_size",
+                        help="Number of samples in each batch")
     parser.add_argument("--layers",
                         help="How many layers of ResNet to use (18 or 50)",
                         default=50)
@@ -45,12 +48,17 @@ if __name__ == '__main__':
 
     masks = True if args.masks == "True" else False
     dual = True if args.dual == "True" else False
+    batch_size = int(args.batch_size)
 
     if args.backbone == "resnet":
         model = ResNet_backbone(layers=int(args.layers),
                                 freeze=5,
                                 dual=dual)
     # ResUNet model...
+
+    # BASELINE
+    model = fcn_resnet50(weights=None,
+                         num_classes=2)
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
@@ -59,7 +67,7 @@ if __name__ == '__main__':
                                                     train_path=args.train_path,
                                                     valid_path=args.valid_path,
                                                     image_shape=(512, 1024),
-                                                    batch_size=10,
+                                                    batch_size=batch_size,
                                                     shuffle=True,
                                                     masks=masks,
                                                     dual=dual)
@@ -70,7 +78,7 @@ if __name__ == '__main__':
                                train_path=args.train_path,
                                valid_path=args.valid_path,
                                image_shape=(512, 1024),
-                               batch_size=10,
+                               batch_size=batch_size,
                                shuffle=True,
                                masks=masks,
                                dual=dual)
