@@ -3,7 +3,51 @@ import copy
 import torch
 import torch.nn as nn
 import torchvision.models as TVmodels
-import torchvision.models.segmentation.fcn as FCN
+
+
+class BasicBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, *args, **kwargs):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1,
+                      *args, **kwargs),
+            nn.BatchNorm2d(out_channels),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1,
+                      *args, **kwargs),
+            nn.BatchNorm2d(out_channels),
+            nn.Mish(),
+        )
+
+    def forward(self, x):
+        return self.block(x) + x
+
+
+class UpsampleBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, *args, **kwargs):
+        super().__init__()
+        self.upsample = nn.Sequential(
+            nn.ConvTranspose2d(in_channels, out_channels,
+                               kernel_size=2, stride=2),
+            BasicBlock(out_channels, out_channels)
+        )
+
+    def forward(self, x):
+        return self.upsample(x)
+
+
+class Decoder(nn.Module):
+    def __init__(self, channels=[[2048, 512], [512, 64], [64, 2]],
+                 dual=False, *args, **kwargs):
+        super().__init__()
+        if dual:
+            channels[0][0] = 4096
+
+        self.decode = nn.Sequential(
+            *[UpsampleBlock(in_ch, out_ch) for [in_ch, out_ch] in channels]
+        )
+
+    def forward(self, x):
+        return self.decode(x)
 
 
 class ResNet_backbone(nn.Module):
@@ -12,14 +56,13 @@ class ResNet_backbone(nn.Module):
         self.dual = dual
         if layers == 50:
             backbone = TVmodels.resnet.resnet50(
-                weights=None,
+                pretrained=False,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
             backbone = TVmodels.resnet.resnet18(
-                weights=None,
-                replace_stride_with_dilation=[False, True, True])
+                pretrained=False)
             backbone.load_state_dict(
                 torch.load("weights/resnet18-f37072fd.pth"))
         # Remove the final two layers (avgpool and fc (fully connected))
@@ -33,19 +76,19 @@ class ResNet_backbone(nn.Module):
 
         if not dual:
             self.backbone = backbone
-            self.fcnhead = FCN.FCNHead(2048, 1)
+            self.decode = Decoder()
         else:
             self.backbone1 = copy.deepcopy(backbone)
             self.backbone2 = copy.deepcopy(backbone)
-            self.fcnhead = FCN.FCNHead(4096, 1)
+            self.decode = Decoder(dual=True)
 
     def forward(self, x):
         if not self.dual:
             x = self.backbone(x)
-            return self.fcnhead(x)
+            return self.decode(x)
         else:
-            img1 = x[:, 0]
-            img2 = x[:, 1]
+            img1 = x[:, 0:3]
+            img2 = x[:, 3:6]
             x1 = self.backbone1(img1)
             x2 = self.backbone2(img2)
-            return self.fcnhead(torch.cat((x1, x2), dim=1))
+            return self.decode(torch.cat((x1, x2), dim=1))
