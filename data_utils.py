@@ -49,6 +49,8 @@ class InputSequence(Dataset):
             input_images = normal(input_images)
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
+        else:
+            image3 = image3[None]  # Add a channel dimension
         return (input_images, image3)
 
     def fetch_image(self, path):
@@ -109,7 +111,8 @@ def load_data(path, image_shape, batch_size=10, shuffle=True,
               masks=False, dual=False):
     dataset = InputSequence(path, image_shape, masks, dual)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=8, persistent_workers=True)
+                            num_workers=40, persistent_workers=True,
+                            pin_memory=True)
     return dataloader
 
 
