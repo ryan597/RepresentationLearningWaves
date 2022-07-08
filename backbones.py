@@ -36,12 +36,8 @@ class UpsampleBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, channels=[[2048, 512], [512, 64], [64, 2]],
-                 dual=False, *args, **kwargs):
+    def __init__(self, channels, *args, **kwargs):
         super().__init__()
-        if dual:
-            channels[0][0] = 4096
-
         self.decode = nn.Sequential(
             *[UpsampleBlock(in_ch, out_ch) for [in_ch, out_ch] in channels]
         )
@@ -51,16 +47,20 @@ class Decoder(nn.Module):
 
 
 class ResNet_backbone(nn.Module):
-    def __init__(self, layers=50, freeze=5, dual=False):
+    def __init__(self, layers=50, freeze=5, masks=False, dual=False):
         super().__init__()
+        self.masks = masks
         self.dual = dual
         if layers == 50:
+            channels = [[2048 + 2048*dual, 512], [512, 64], [64, 1 + masks]]
             backbone = TVmodels.resnet.resnet50(
                 pretrained=False,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
+            channels = [[512 + 512*dual, 256],
+                        [256, 128], [128, 64], [64, 1 + masks]]
             backbone = TVmodels.resnet.resnet18(
                 pretrained=False)
             backbone.load_state_dict(
@@ -76,19 +76,21 @@ class ResNet_backbone(nn.Module):
 
         if not dual:
             self.backbone = backbone
-            self.decode = Decoder()
+            self.decode = Decoder(channels)
         else:
             self.backbone1 = copy.deepcopy(backbone)
             self.backbone2 = copy.deepcopy(backbone)
-            self.decode = Decoder(dual=True)
+            self.decode = Decoder(channels)
 
     def forward(self, x):
         if not self.dual:
             x = self.backbone(x)
-            return self.decode(x)
+            x = self.decode(x)
         else:
             img1 = x[:, 0:3]
             img2 = x[:, 3:6]
             x1 = self.backbone1(img1)
             x2 = self.backbone2(img2)
-            return self.decode(torch.cat((x1, x2), dim=1))
+            x = self.decode(torch.cat((x1, x2), dim=1))
+
+        return x.softmax(dim=0) if self.masks else x
