@@ -15,23 +15,28 @@ module load cudnn
 module load conda/2
 source activate rlwave
 
+# NCCL settings
+export NCCL_NSOCKS_PERTHREAD=8
+export NCCL_SOCKET_NTHREADS=4
+
 # Model inputs
 MASKS=False
-BACKBONE=resnet
+BACKBONE=resnet #baseline
 LAYERS=50
-DUAL=False
+DUAL=True
+FREEZE=8
 
 # HParams
-MAX_EPOCHS=1000
+MAX_EPOCHS=500
 LR=0.001
 BATCH_SIZE=10
 STRATEGY="ddp"
 ACCELERATOR="gpu"
 DEVICES=2
 NUM_NODES=1
-VAL_EPOCHS=5
+VAL_EPOCHS=100
 DEFAULT_DIR="outputs/"
-TRAIN_PATH="data/v5"
+TRAIN_PATH="data/v1"
 VALID_PATH="data/v2"
 LOG_EVERY_N_STEPS=1
 NUM_SANITY_STEPS=0
@@ -39,8 +44,8 @@ GRADIENT_CLIP=0.5
 #CHECKPOINT="outputs/lightning_logs/version_962084/checkpoints/epoch=114-step=1035.ckpt"
 
 
-srun python3 train.py --masks $MASKS --backbone $BACKBONE --lr $LR --dual $DUAL --layers $LAYERS \
-     -batch_size $BATCH_SIZE --train_path $TRAIN_PATH --valid_path $VALID_PATH --enable_checkpointing True \
+srun python3 train.py --masks $MASKS --backbone $BACKBONE --lr $LR --dual $DUAL --layers $LAYERS --freeze $FREEZE \
+     --batch_size $BATCH_SIZE --train_path $TRAIN_PATH --valid_path $VALID_PATH --enable_checkpointing True \
      --enable_progress_bar True --max_epochs $MAX_EPOCHS --strategy $STRATEGY --devices $DEVICES \
      --accelerator $ACCELERATOR --num_nodes $NUM_NODES --sync_batchnorm True  \
      --check_val_every_n_epoch $VAL_EPOCHS --logger True --default_root_dir $DEFAULT_DIR \
