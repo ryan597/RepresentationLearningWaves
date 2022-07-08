@@ -33,6 +33,8 @@ if __name__ == '__main__':
     parser.add_argument("--layers",
                         help="How many layers of ResNet to use (18 or 50)",
                         default=50)
+    parser.add_argument("--freeze",
+                        help="How many layers of the backbone to freeze")
     parser.add_argument("--masks",
                         help="Train for segmentation or frame prediciton",
                         default=False)
@@ -46,7 +48,6 @@ if __name__ == '__main__':
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     trainer = pl.Trainer.from_argparse_args(args)
-
     # shell passes all values as strings
     masks = True if args.masks == "True" else False
     dual = True if args.dual == "True" else False
@@ -54,6 +55,7 @@ if __name__ == '__main__':
     batch_size = int(args.batch_size)
     image_shape = (256, 512)
     layers = int(args.layers)
+    freeze = int(args.freeze)
 
     match args.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
@@ -74,9 +76,10 @@ if __name__ == '__main__':
         # RESNET_BACKBONE : 2 input images, no pre-training
         case "resnet":
             model = ResNet_backbone(layers=layers,
-                                    freeze=10,
+                                    freeze=freeze,
+                                    masks=masks,
                                     dual=dual)
-    # ResUNet model...
+        # ResUNet model
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(args.checkpoint,
