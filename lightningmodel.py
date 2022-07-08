@@ -42,7 +42,7 @@ class LightningModel(pl.LightningModule):
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
-                "monitor": "train_loss",
+                "monitor": "valid_loss",
                 }
         return {
                 "optimizer": optimizer,
@@ -77,12 +77,14 @@ class LightningModel(pl.LightningModule):
             input_image = input_image.detach().cpu().numpy()[0]
             gt_image = gt_image.detach().cpu().numpy()[0]
             pred_image = pred_image.detach().cpu().numpy()[0]
+            cmap = 'viridis'
             if self.masks:  # Threshold if pred should be a mask
-                pred_image = pred_image >= 0.3
-            ax[i, 0].imshow(input_image, cmap='gray')
-            ax[i, 1].imshow(gt_image, cmap='gray')
-            ax[i, 2].imshow(pred_image, cmap='gray')
-            ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap='gray')
+                pred_image = pred_image >= 0.5
+                cmap = 'gray'
+            ax[i, 0].imshow(input_image, cmap=cmap)
+            ax[i, 1].imshow(gt_image, cmap=cmap)
+            ax[i, 2].imshow(pred_image, cmap=cmap)
+            ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
             if i == 4:
                 break
         title = "Segmentation" if self.masks else "Frame Prediciton"
