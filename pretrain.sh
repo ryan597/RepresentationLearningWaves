@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH --time=2:00:00
+#SBATCH --time=48:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 #SBATCH -A ndmat033a
@@ -24,20 +24,21 @@ MASKS=False
 BACKBONE=resnet #baseline
 LAYERS=50
 DUAL=True
-FREEZE=8
+FREEZE=5
+SIZE=128
 
 # HParams
-MAX_EPOCHS=500
+MAX_EPOCHS=100
 LR=0.001
-BATCH_SIZE=10
-STRATEGY="ddp"
+BATCH_SIZE=40
+STRATEGY="ddp_find_unused_parameters_false"
 ACCELERATOR="gpu"
 DEVICES=2
 NUM_NODES=1
 VAL_EPOCHS=100
 DEFAULT_DIR="outputs/"
-TRAIN_PATH="data/v1"
-VALID_PATH="data/v2"
+TRAIN_PATH="data"
+VALID_PATH="data/test"
 LOG_EVERY_N_STEPS=1
 NUM_SANITY_STEPS=0
 GRADIENT_CLIP=0.5
@@ -45,7 +46,7 @@ GRADIENT_CLIP=0.5
 
 
 srun python3 train.py --masks $MASKS --backbone $BACKBONE --lr $LR --dual $DUAL --layers $LAYERS --freeze $FREEZE \
-     --batch_size $BATCH_SIZE --train_path $TRAIN_PATH --valid_path $VALID_PATH --enable_checkpointing True \
+     --batch_size $BATCH_SIZE --train_path $TRAIN_PATH --valid_path $VALID_PATH --size $SIZE --enable_checkpointing True \
      --enable_progress_bar True --max_epochs $MAX_EPOCHS --strategy $STRATEGY --devices $DEVICES \
      --accelerator $ACCELERATOR --num_nodes $NUM_NODES --sync_batchnorm True  \
      --check_val_every_n_epoch $VAL_EPOCHS --logger True --default_root_dir $DEFAULT_DIR \
