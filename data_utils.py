@@ -16,12 +16,13 @@ import torchvision.transforms.functional as TF
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_shape, masks=False, dual=False):
+    def __init__(self, path, image_shape, masks=False, dual=False, aug=False):
         self.image_shape = image_shape
         self.folder_path = path
         self.masks = masks
         self.dual = dual
-        self.folders = glob.glob(self.folder_path + "/wave_*")
+        self.aug = aug
+        self.folders = glob.glob("v*", root_dir=self.folder_path)
         if masks:
             self.sequences = self.generate_masks()
         else:
@@ -54,34 +55,50 @@ class InputSequence(Dataset):
         return (input_images, image3)
 
     def fetch_image(self, path):
-        return cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
+
+    def check_seq(self, p1, p2, p3):
+        if (int(p2[3:-4]) - int(p1[3:-4]) == 1 and
+            int(p3[3:-4]) - int(p2[3:-4]) == 1):
+            return True
+        else:
+            return False
 
     def generate_sequences(self):
         sequences = {}
         counter = 0
         for folder in self.folders:
-            files = glob.glob(f"{folder}/*.png")
+            files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
             files = sorted(files)
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                sequences[counter] = (img1, img2, img3)
-                counter += 1
+                if self.check_seq(img1, img2, img3):
+                    sequences[counter] = (img1, img2, img3)
+                    counter += 1
         return sequences
 
     def generate_masks(self):
         sequences = {}
         counter = 0
         for folder in self.folders:
-            files = glob.glob(f"{folder}/*.png")
+            files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
             files = sorted(files)
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                img3 = "data/masks/BW/" + img3[-9:]
-                if exists(img3):
-                    sequences[counter] = (img1, img2, img3)
-                    counter += 1
+                if self.check_seq(img1, img2, img3):
+                    img3 = "/masks/BW/" + img2[3:]  # get mask of img2
+                    if exists(self.folder_path + img3):
+                        sequences[counter] = (img1, img2, img3)
+                        counter += 1
         return sequences
 
     def transform(self, *args):
         images = []
+        if not self.aug:
+            transform = T.ToTensor()
+            resize = T.Resize(size=self.image_shape)
+            for image in args:
+                images.append(resize(transform(image))[0])
+            return images
+
         hflip = random.random()
         vflip = random.random()
         i, j, h, w = T.RandomCrop.get_params(
@@ -108,8 +125,8 @@ class InputSequence(Dataset):
 
 
 def load_data(path, image_shape, batch_size=10, shuffle=True,
-              masks=False, dual=False):
-    dataset = InputSequence(path, image_shape, masks, dual)
+              masks=False, dual=False, aug=False):
+    dataset = InputSequence(path, image_shape, masks, dual, aug)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
                             num_workers=40, persistent_workers=True,
                             pin_memory=True)
