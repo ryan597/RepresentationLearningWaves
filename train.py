@@ -22,6 +22,8 @@ if __name__ == '__main__':
     parser.add_argument("--test_path",
                         help="Path to directory of testing datasets",
                         default=None)
+    parser.add_argument("--size",
+                        help="Image shape as (SIZE, 2*SIZE)")
     parser.add_argument("--lr",
                         help="Initial learning rate",
                         default=0.001)
@@ -53,7 +55,7 @@ if __name__ == '__main__':
     dual = True if args.dual == "True" else False
     lr = float(args.lr)
     batch_size = int(args.batch_size)
-    image_shape = (256, 512)
+    image_shape = (int(args.size), 2*int(args.size))
     layers = int(args.layers)
     freeze = int(args.freeze)
 
@@ -105,3 +107,4 @@ if __name__ == '__main__':
                                dual=dual)
 
     trainer.fit(model)
+    trainer.save_checkpoint("outputs/model_end.ckpt")
