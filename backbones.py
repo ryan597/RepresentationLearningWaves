@@ -52,7 +52,7 @@ class ResNet_backbone(nn.Module):
         self.masks = masks
         self.dual = dual
         if layers == 50:
-            channels = [[2048 + 2048*dual, 512], [512, 64], [64, 1 + masks]]
+            channels = [[2048 + 2048*dual, 512], [512, 64], [64, 1]]
             backbone = TVmodels.resnet.resnet50(
                 pretrained=False,
                 replace_stride_with_dilation=[False, True, True])
@@ -60,7 +60,7 @@ class ResNet_backbone(nn.Module):
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
             channels = [[512 + 512*dual, 256],
-                        [256, 128], [128, 64], [64, 1 + masks]]
+                        [256, 128], [128, 64], [64, 1]]
             backbone = TVmodels.resnet.resnet18(
                 pretrained=False)
             backbone.load_state_dict(
@@ -93,4 +93,4 @@ class ResNet_backbone(nn.Module):
             x2 = self.backbone2(img2)
             x = self.decode(torch.cat((x1, x2), dim=1))
 
-        return x.softmax(dim=0) if self.masks else x
+        return torch.cat((x.softmax(dim=0), 1 - x.softmax(dim=0)), dim=1) if self.masks else x
