@@ -42,7 +42,7 @@ class LightningModel(pl.LightningModule):
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
-                "monitor": "valid_loss",
+                "monitor": "train_loss",
                 }
         return {
                 "optimizer": optimizer,
@@ -77,10 +77,9 @@ class LightningModel(pl.LightningModule):
             input_image = input_image.detach().cpu().numpy()[0]
             gt_image = gt_image.detach().cpu().numpy()[0]
             pred_image = pred_image.detach().cpu().numpy()[0]
-            cmap = 'viridis'
             if self.masks:  # Threshold if pred should be a mask
                 pred_image = pred_image >= 0.5
-                cmap = 'gray'
+            cmap = 'gray'
             ax[i, 0].imshow(input_image, cmap=cmap)
             ax[i, 1].imshow(gt_image, cmap=cmap)
             ax[i, 2].imshow(pred_image, cmap=cmap)
@@ -116,8 +115,9 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             masks=self.masks,
-            dual=self.dual
-        )
+            dual=self.dual,
+            aug=True
+            )
 
     def val_dataloader(self):
         return data_utils.load_data(
@@ -126,7 +126,8 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=False,
             masks=self.masks,
-            dual=self.dual
+            dual=self.dual,
+            aug=False
         )
 
     def test_dataloader(self):
@@ -136,5 +137,6 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=False,
             masks=self.masks,
-            dual=self.dual
+            dual=self.dual,
+            aug=False
         )
