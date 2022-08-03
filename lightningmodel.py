@@ -77,34 +77,57 @@ class LightningModel(pl.LightningModule):
             input_image = input_image.detach().cpu().numpy()[0]
             gt_image = gt_image.detach().cpu().numpy()[0]
             pred_image = pred_image.detach().cpu().numpy()[0]
-            if self.masks:  # Threshold if pred should be a mask
-                pred_image = pred_image >= 0.5
             cmap = 'gray'
             ax[i, 0].imshow(input_image, cmap=cmap)
             ax[i, 1].imshow(gt_image, cmap=cmap)
-            ax[i, 2].imshow(pred_image, cmap=cmap)
-            ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
+
+            if self.masks:  # Threshold if pred should be a mask
+                thresh_image = pred_image >= 0.3
+                ax[i, 2].imshow(thresh_image, cmap=cmap)
+                ax[i, 3].imshow(pred_image, cmap=cmap)
+            else:
+                ax[i, 2].imshow(pred_image, cmap=cmap)
+                ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
             if i == 4:
                 break
         title = "Segmentation" if self.masks else "Frame Prediciton"
+        prob_diff = "Probability Map" if self.masks else "Difference"
         fig.suptitle(f"Model Outputs - {title}", fontsize=13)
         ax[0, 0].set_title("Input", fontsize=10)
         ax[0, 1].set_title("Ground Truth", fontsize=10)
         ax[0, 2].set_title("Prediction", fontsize=10)
-        ax[0, 3].set_title("Difference", fontsize=10)
+        ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
         save_path = f"outputs/figures/{loc}/{self.current_epoch}-{batch_idx}"
-        plt.savefig(save_path + ".png")
+        plt.savefig(save_path + ".png", dpi=1200)
         plt.close()
 
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        if self.masks:
-            test_loss = self.criterion(outputs, labels, reduction='mean')
-        else:
-            test_loss = self.criterion(outputs, labels)
+        test_loss = self.criterion(outputs, labels, reduction='mean')
+        output = outputs.detach().cpu().numpy()
+        label = labels.detach().cpu().numpy()
+        pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100
+
+        # IoU of averaged over FG and BG
+        output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
+        output[1] = output[0] > 0.7
+        inter = np.sum(output * label, axis=1)
+        union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
+        iou = np.mean((inter + 1) / (union + 1))
+
+        # Dice coef
+        # factor of 2 cancels from 2 channels and average
+        dc = np.sum(2 * inter / np.size(output))
+
         self.log('test_loss', test_loss, on_epoch=True, sync_dist=True,
+                 prog_bar=True, logger=True)
+        self.log('pixelacc', pixelacc, on_epoch=True, sync_dist=True,
+                 prog_bar=True, logger=True)
+        self.log('IoU', iou, on_epoch=True, sync_dist=True,
+                 prog_bar=True, logger=True)
+        self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
 
