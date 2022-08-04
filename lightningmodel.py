@@ -36,7 +36,7 @@ class LightningModel(pl.LightningModule):
         lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
-            factor=0.5,
+            factor=0.1,
             patience=10,
             threshold=0.00001,
             verbose=True)
@@ -53,6 +53,7 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         loss = self.criterion(outputs, labels, reduction='mean')
+
         self.log("train_loss", loss, on_step=True, on_epoch=True,
                  prog_bar=True, logger=True)
         if batch_idx == 2:
@@ -65,7 +66,8 @@ class LightningModel(pl.LightningModule):
         val_loss = self.criterion(outputs, labels, reduction='mean')
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
-        self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+        if batch_idx == 2:
+            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
@@ -82,16 +84,18 @@ class LightningModel(pl.LightningModule):
             ax[i, 1].imshow(gt_image, cmap=cmap)
 
             if self.masks:  # Threshold if pred should be a mask
+                title = "Segmentation"
+                prob_diff = "Probability Map"
                 thresh_image = pred_image >= 0.3
                 ax[i, 2].imshow(thresh_image, cmap=cmap)
                 ax[i, 3].imshow(pred_image, cmap=cmap)
             else:
+                title = "Frame Prediciton"
+                prob_diff = "Difference"
                 ax[i, 2].imshow(pred_image, cmap=cmap)
                 ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
             if i == 4:
                 break
-        title = "Segmentation" if self.masks else "Frame Prediciton"
-        prob_diff = "Probability Map" if self.masks else "Difference"
         fig.suptitle(f"Model Outputs - {title}", fontsize=13)
         ax[0, 0].set_title("Input", fontsize=10)
         ax[0, 1].set_title("Ground Truth", fontsize=10)
@@ -99,7 +103,7 @@ class LightningModel(pl.LightningModule):
         ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
         save_path = f"outputs/figures/{loc}/{self.current_epoch}-{batch_idx}"
-        plt.savefig(save_path + ".png", dpi=1200)
+        plt.savefig(save_path + ".png", dpi=600)
         plt.close()
 
     def test_step(self, batch, batch_idx):

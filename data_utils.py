@@ -59,7 +59,7 @@ class InputSequence(Dataset):
 
     def check_seq(self, p1, p2, p3):
         if (int(p2[3:-4]) - int(p1[3:-4]) == 1 and
-            int(p3[3:-4]) - int(p2[3:-4]) == 1):
+           int(p3[3:-4]) - int(p2[3:-4]) == 1):
             return True
         else:
             return False
