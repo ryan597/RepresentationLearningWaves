@@ -11,10 +11,11 @@ class BasicBlock(nn.Module):
         self.block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1,
                       *args, **kwargs),
-            nn.BatchNorm2d(out_channels),
+            # nn.BatchNorm2d(out_channels),
+            nn.Mish(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1,
                       *args, **kwargs),
-            nn.BatchNorm2d(out_channels),
+            # nn.BatchNorm2d(out_channels),
             nn.Mish(),
         )
 
@@ -82,6 +83,12 @@ class ResNet_backbone(nn.Module):
             self.backbone2 = copy.deepcopy(backbone)
             self.decode = Decoder(channels)
 
+        # Freeze the decoder if masks
+        if self.masks:
+            for child in list(self.decode.decode)[:-1]:
+                for param in child.parameters():
+                    param.requires_grad = False
+
     def forward(self, x):
         if not self.dual:
             x = self.backbone(x)
@@ -92,5 +99,6 @@ class ResNet_backbone(nn.Module):
             x1 = self.backbone1(img1)
             x2 = self.backbone2(img2)
             x = self.decode(torch.cat((x1, x2), dim=1))
-
-        return torch.cat((x.softmax(dim=0), 1 - x.softmax(dim=0)), dim=1) if self.masks else x
+        if self.masks:
+            x = torch.cat((x.softmax(dim=0), 1 - x.softmax(dim=0)), dim=1)
+        return x
