@@ -2,6 +2,7 @@
 
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
+#SBATCH --mem=0
 #SBATCH --ntasks-per-node=2
 #SBATCH -A ndmat033a
 #SBATCH -p GpuQ
@@ -15,16 +16,12 @@ module load cudnn
 module load conda/2
 source activate rlwave
 
-# NCCL settings
-export NCCL_NSOCKS_PERTHREAD=8
-export NCCL_SOCKET_NTHREADS=4
-
 # Model inputs
 MASKS=True
 BACKBONE=resnet #baseline
 LAYERS=50
 DUAL=True
-FREEZE=10
+FREEZE=8
 SIZE=256
 
 # HParams
@@ -54,3 +51,4 @@ srun python3 train.py --masks $MASKS --backbone $BACKBONE --lr $LR --dual $DUAL 
      --log_every_n_steps $LOG_EVERY_N_STEPS --gradient_clip_val $GRADIENT_CLIP \
      --checkpoint $CHECKPOINT
 
+exit 0
