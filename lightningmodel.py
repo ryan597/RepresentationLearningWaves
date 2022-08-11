@@ -38,7 +38,7 @@ class LightningModel(pl.LightningModule):
             mode="min",
             factor=0.1,
             patience=10,
-            threshold=0.00001,
+            threshold=0.0001,
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
@@ -56,6 +56,30 @@ class LightningModel(pl.LightningModule):
 
         self.log("train_loss", loss, on_step=True, on_epoch=True,
                  prog_bar=True, logger=True)
+
+        if self.masks:
+            output = outputs.detach().cpu().numpy()
+            label = labels.detach().cpu().numpy()
+            pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+
+            # IoU of averaged over FG and BG
+            output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
+            output[1] = output[0] > 0.7
+            inter = np.sum(output * label, axis=1)
+            union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
+            iou = np.mean((inter + 1) / (union + 1))
+
+            # Dice coef
+            # factor of 2 cancels from 2 channels and average
+            dc = np.sum(2 * inter / np.size(output))
+
+            self.log('pixelacc', pixelacc, on_step=True, on_epoch=True,
+                     prog_bar=True, logger=True)
+            self.log('IoU', iou, on_step=True, on_epoch=True,
+                     prog_bar=True, logger=True)
+            self.log('Dice Coef', dc, on_step=True, on_epoch=True,
+                     prog_bar=True, logger=True)
+
         if batch_idx == 2:
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return loss
@@ -66,6 +90,30 @@ class LightningModel(pl.LightningModule):
         val_loss = self.criterion(outputs, labels, reduction='mean')
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
+
+        if self.masks:
+            output = outputs.detach().cpu().numpy()
+            label = labels.detach().cpu().numpy()
+            pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+
+            # IoU of averaged over FG and BG
+            output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
+            output[1] = output[0] > 0.7
+            inter = np.sum(output * label, axis=1)
+            union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
+            iou = np.mean((inter + 1) / (union + 1))
+
+            # Dice coef
+            # factor of 2 cancels from 2 channels and average
+            dc = np.sum(2 * inter / np.size(output))
+
+            self.log('pixelacc', pixelacc, on_epoch=True, sync_dist=True,
+                     prog_bar=True, logger=True)
+            self.log('IoU', iou, on_epoch=True, sync_dist=True,
+                     prog_bar=True, logger=True)
+            self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
+                     prog_bar=True, logger=True)
+
         if batch_idx == 2:
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
@@ -86,12 +134,14 @@ class LightningModel(pl.LightningModule):
             if self.masks:  # Threshold if pred should be a mask
                 title = "Segmentation"
                 prob_diff = "Probability Map"
+                subdir = "masks"
                 thresh_image = pred_image >= 0.3
                 ax[i, 2].imshow(thresh_image, cmap=cmap)
                 ax[i, 3].imshow(pred_image, cmap=cmap)
             else:
                 title = "Frame Prediciton"
                 prob_diff = "Difference"
+                subdir = "frames"
                 ax[i, 2].imshow(pred_image, cmap=cmap)
                 ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
             if i == 4:
@@ -102,7 +152,7 @@ class LightningModel(pl.LightningModule):
         ax[0, 2].set_title("Prediction", fontsize=10)
         ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
-        save_path = f"outputs/figures/{loc}/{self.current_epoch}-{batch_idx}"
+        save_path = f"outputs/figures/{loc}/{subdir}/{self.current_epoch}-{batch_idx}"
         plt.savefig(save_path + ".png", dpi=600)
         plt.close()
 
@@ -112,7 +162,7 @@ class LightningModel(pl.LightningModule):
         test_loss = self.criterion(outputs, labels, reduction='mean')
         output = outputs.detach().cpu().numpy()
         label = labels.detach().cpu().numpy()
-        pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100
+        pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
 
         # IoU of averaged over FG and BG
         output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
