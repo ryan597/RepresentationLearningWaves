@@ -43,12 +43,14 @@ class InputSequence(Dataset):
 
         if self.dual:  # 6 channels
             # image1 = normal(torch.stack((image1, image1, image1), dim=0))
-            image1 = torch.stack((image1, image1, image1), dim=0)
+            #image1 = torch.stack((image1, image1, image1), dim=0)
             # image2 = normal(torch.stack((image2, image2, image2), dim=0))
-            image2 = torch.stack((image2, image2, image2), dim=0)
-            input_images = torch.cat((image1, image2), dim=0)
+            #image2 = torch.stack((image2, image2, image2), dim=0)
+
+            input_images = torch.cat((image1[None], image2[None]), dim=0)
         else:  # 3 channels
-            input_images = torch.stack((image2, image2, image2), dim=0)
+            #input_images = torch.stack((image2, image2, image2), dim=0)
+            input_images = image2[None]
             # input_images = normal(input_images)
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
