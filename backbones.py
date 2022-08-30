@@ -193,7 +193,8 @@ class ResUNet(nn.Module):
             )
             self.decode.append(combinedlayer)
 
-        self.decode.append(nn.Conv2d(in_out_sizes[0][0], 1, kernel_size=1))
+        self.decode.append(nn.Conv2d(in_out_sizes[0][0], out_channels,
+                                     kernel_size=1))
 
         if self.masks and self.freeze > 1:
             for child in self.encode.children():
