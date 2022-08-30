@@ -38,18 +38,18 @@ class InputSequence(Dataset):
         image2 = self.fetch_image(p2)
         image3 = self.fetch_image(p3)
         image1, image2, image3 = self.transform(image1, image2, image3)
-        #normal = T.Normalize(mean=[0.485, 0.456, 0.406],
+        # normal = T.Normalize(mean=[0.485, 0.456, 0.406],
         #                     std=[0.229, 0.224, 0.225])
 
         if self.dual:  # 6 channels
-            #image1 = normal(torch.stack((image1, image1, image1), dim=0))
+            # image1 = normal(torch.stack((image1, image1, image1), dim=0))
             image1 = torch.stack((image1, image1, image1), dim=0)
-            #image2 = normal(torch.stack((image2, image2, image2), dim=0))
+            # image2 = normal(torch.stack((image2, image2, image2), dim=0))
             image2 = torch.stack((image2, image2, image2), dim=0)
             input_images = torch.cat((image1, image2), dim=0)
         else:  # 3 channels
             input_images = torch.stack((image2, image2, image2), dim=0)
-            #input_images = normal(input_images)
+            # input_images = normal(input_images)
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
         else:
@@ -130,7 +130,7 @@ def load_data(path, image_shape, batch_size=10, shuffle=True,
               masks=False, dual=False, aug=False):
     dataset = InputSequence(path, image_shape, masks, dual, aug)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=40, persistent_workers=True,
+                            num_workers=20, persistent_workers=True,
                             pin_memory=True)
     return dataloader
 
