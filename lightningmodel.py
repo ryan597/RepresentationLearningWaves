@@ -10,6 +10,14 @@ from torchvision.ops import sigmoid_focal_loss
 import data_utils
 
 
+def maskedL1loss(output, target, input, reduction):
+    mask = torch.abs(input[0] - input[1])
+    loss = torch.abs(output - target)
+    if reduction == "mean":
+        loss = torch.mean(loss)
+    return loss
+
+
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
