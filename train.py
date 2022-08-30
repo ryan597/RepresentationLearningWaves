@@ -84,27 +84,29 @@ if __name__ == '__main__':
         # ResUNet model
 
     if args.checkpoint:
-        model = LightningModel.load_from_checkpoint(args.checkpoint,
-                                                    base_model=model,
-                                                    lr=lr,
-                                                    train_path=args.train_path,
-                                                    valid_path=args.valid_path,
-                                                    image_shape=image_shape,
-                                                    batch_size=batch_size,
-                                                    shuffle=True,
-                                                    masks=masks,
-                                                    dual=dual)
-
+        model = LightningModel.load_from_checkpoint(
+            args.checkpoint,
+            base_model=model,
+            lr=lr,
+            train_path=args.train_path,
+            valid_path=args.valid_path,
+            image_shape=image_shape,
+            batch_size=batch_size,
+            shuffle=True,
+            masks=masks,
+            dual=dual)
     else:
-        model = LightningModel(base_model=model,
-                               lr=lr,
-                               train_path=args.train_path,
-                               valid_path=args.valid_path,
-                               image_shape=image_shape,
-                               batch_size=batch_size,
-                               shuffle=True,
-                               masks=masks,
-                               dual=dual)
+        model = LightningModel(
+            base_model=model,
+            lr=lr,
+            train_path=args.train_path,
+            valid_path=args.valid_path,
+            image_shape=image_shape,
+            batch_size=batch_size,
+            shuffle=True,
+            masks=masks,
+            dual=dual)
 
     trainer.fit(model)
+
     trainer.save_checkpoint("outputs/model_end.ckpt")
