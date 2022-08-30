@@ -37,12 +37,14 @@ class LightningModel(pl.LightningModule):
             optimizer,
             mode="min",
             factor=0.1,
-            patience=10,
+            patience=5,
             threshold=0.0001,
             verbose=True)
         lr_scheduler_config = {
                 "scheduler": lr_scheduler,
                 "monitor": "train_loss",
+                "interval": "epoch",
+                "frequency": 1
                 }
         return {
                 "optimizer": optimizer,
@@ -57,32 +59,32 @@ class LightningModel(pl.LightningModule):
         self.log("train_loss", loss, on_step=True, on_epoch=True,
                  prog_bar=True, logger=True)
 
-        if self.masks:
-            output = outputs.detach().cpu().numpy()
-            label = labels.detach().cpu().numpy()
-            pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
-
-            # IoU of averaged over FG and BG
-            output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
-            output[1] = output[0] > 0.7
-            inter = np.sum(output * label, axis=1)
-            union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
-            iou = np.mean((inter + 1) / (union + 1))
-
-            # Dice coef
-            # factor of 2 cancels from 2 channels and average
-            dc = np.sum(2 * inter / np.size(output))
-
-            self.log('pixelacc', pixelacc, on_step=True, on_epoch=True,
-                     prog_bar=True, logger=True)
-            self.log('IoU', iou, on_step=True, on_epoch=True,
-                     prog_bar=True, logger=True)
-            self.log('Dice Coef', dc, on_step=True, on_epoch=True,
-                     prog_bar=True, logger=True)
+        # if self.masks:
+        #     output = outputs.detach().cpu().numpy()
+        #     label = labels.detach().cpu().numpy()
+        #     pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+        #
+        #     # IoU of averaged over FG and BG
+        #     output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
+        #     output[1] = output[0] > 0.7
+        #     inter = np.sum(output * label, axis=1)
+        #     union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
+        #     iou = np.mean((inter + 1) / (union + 1))
+        #
+        #     # Dice coef
+        #     # factor of 2 cancels from 2 channels and average
+        #     dc = np.sum(2 * inter / np.size(output))
+        #
+        #     self.log('pixelacc', pixelacc, on_step=False, on_epoch=True,
+        #              prog_bar=True, logger=True)
+        #     self.log('IoU', iou, on_step=False, on_epoch=True,
+        #              prog_bar=True, logger=True)
+        #     self.log('Dice Coef', dc, on_step=False, on_epoch=True,
+        #              prog_bar=True, logger=True)
 
         if batch_idx == 2:
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
-        return loss
+        return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
         inputs, labels = batch
@@ -124,7 +126,7 @@ class LightningModel(pl.LightningModule):
                                subplot_kw={'xticks': [], 'yticks': []})
         for i, [input_image, pred_image, gt_image] in enumerate(zip(
                 inputs, outputs, labels)):
-            input_image = input_image.detach().cpu().numpy()[0]
+            input_image = input_image.detach().cpu().numpy()[1]
             gt_image = gt_image.detach().cpu().numpy()[0]
             pred_image = pred_image.detach().cpu().numpy()[0]
             cmap = 'gray'
