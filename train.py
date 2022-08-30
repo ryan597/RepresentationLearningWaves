@@ -4,7 +4,7 @@ import torch
 import pytorch_lightning as pl
 from torchvision.models.segmentation import fcn_resnet50
 
-from backbones import ResNet_backbone ResUNet
+from backbones import ResNet_backbone, ResUNet
 from lightningmodel import LightningModel
 
 # Disable Randomness
