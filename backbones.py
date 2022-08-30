@@ -11,16 +11,29 @@ class BasicBlock(nn.Module):
         self.block = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1,
                       *args, **kwargs),
-            # nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.Mish(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1,
                       *args, **kwargs),
-            # nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels),
             nn.Mish(),
         )
 
     def forward(self, x):
         return self.block(x) + x
+
+
+class DownsampleBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, n=1, *args, **kwargs):
+        super().__init__()
+        self.downsample = nn.Sequential(
+            BasicBlock(in_channels, out_channels),
+            *[BasicBlock(out_channels, out_channels, *args, **kwargs)
+                for _ in range(n-1)]
+        )
+
+    def forward(self, x):
+        return self.downsample(x)
 
 
 class UpsampleBlock(nn.Module):
@@ -29,6 +42,7 @@ class UpsampleBlock(nn.Module):
         self.upsample = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels,
                                kernel_size=2, stride=2),
+            BasicBlock(out_channels, out_channels),
             BasicBlock(out_channels, out_channels)
         )
 
@@ -84,10 +98,10 @@ class ResNet_backbone(nn.Module):
             self.decode = Decoder(channels)
 
         # Freeze the decoder if masks
-        if self.masks:
-            for child in list(self.decode.decode)[:-1]:
-                for param in child.parameters():
-                    param.requires_grad = False
+        # if self.masks:
+        #    for child in list(self.decode.decode)[:-1]:
+        #       for param in child.parameters():
+        #            param.requires_grad = False
 
     def forward(self, x):
         if not self.dual:
@@ -101,4 +115,30 @@ class ResNet_backbone(nn.Module):
             x = self.decode(torch.cat((x1, x2), dim=1))
         if self.masks:
             x = torch.cat((x.softmax(dim=0), 1 - x.softmax(dim=0)), dim=1)
+        return x
+
+
+class ResUNet(nn.Module):
+    def __init__(self, in_ch, out_ch,
+                 block_size=[32, 64, 128, 256, 512, 1024],
+                 depths=[2, 3, 5, 3, 2]):
+        super().__init__()
+        in_out_size = list(zip(block_size, block_size[1:]))
+        self.gate = nn.Sequential(
+            nn.Conv2d(in_ch, block_size[0], kernel_size=7, padding=3),
+            nn.BatchNorm2d(block_size[0]),
+            nn.Mish(),
+            nn.Conv2d(block_size[0], block_size[0], kernel_size=3, padding=1),
+            nn.BatchNorm2d(block_size[0]),
+            nn.Mish()
+        )
+
+        self.encode = nn.ModuleList([])
+        self.decode = nn.ModuleList([
+            UpsampleBlock(in_channels, in_channels, n)
+            for (in_channels, _) in in_out_size
+        ])
+
+    def forward(self, x):
+
         return x
