@@ -24,7 +24,6 @@ class LightningModel(pl.LightningModule):
         self.dual = dual
         self.batch_size = batch_size
         self.shuffle = shuffle
-        # F.smooth_l1_loss
         self.criterion = sigmoid_focal_loss if masks else F.l1_loss
         self.save_hyperparameters(ignore=['base_model'])
 

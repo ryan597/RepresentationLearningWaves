@@ -82,6 +82,9 @@ if __name__ == '__main__':
                                     masks=masks,
                                     dual=dual)
         # ResUNet model
+        case "resunet":
+            model = ResUNet(masks=masks,
+                            freeze=freeze)
 
     if args.checkpoint:
         model = LightningModel.load_from_checkpoint(
