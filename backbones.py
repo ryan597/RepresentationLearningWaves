@@ -6,29 +6,40 @@ import torchvision.models as TVmodels
 
 
 class BasicBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, *args, **kwargs):
+    """
+    Basic block to which a dilation array can be passed. Independent blocks
+    will be constructed with the respective dilations. All results are summed
+    along with the residual connection at the end.
+    """
+    def __init__(self, in_chan, out_chan, dil_arr=[1], *args, **kwargs):
         super().__init__()
-        self.block = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1,
-                      *args, **kwargs),
-            nn.BatchNorm2d(out_channels),
-            nn.Mish(),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1,
-                      *args, **kwargs),
-            nn.BatchNorm2d(out_channels),
-            nn.Mish(),
-        )
+        self.blocks = nn.ModuleList([])
+        for d in dil_arr:
+            block = nn.Sequential(
+                nn.Conv2d(in_chan, out_chan, kernel_size=3,
+                          padding='same', dialtion=d, *args, **kwargs),
+                nn.BatchNorm2d(out_chan),
+                nn.Mish(),
+                nn.Conv2d(out_chan, out_chan, kernel_size=3,
+                          padding='same', dialtion=d, *args, **kwargs),
+                nn.BatchNorm2d(out_chan),
+                nn.Mish(),
+                )
+            self.blocks.append(block)
 
     def forward(self, x):
-        return self.block(x) + x
+        res = 0
+        for block in self.blocks:
+            res += block(x)
+        return res + x
 
 
 class ResidualLayer(nn.Module):
-    def __init__(self, in_channels, out_channels, n=1, *args, **kwargs):
+    def __init__(self, in_chan, out_chan, dil_arr=[1], n=1, *args, **kwargs):
         super().__init__()
         self.downsample = nn.Sequential(
-            BasicBlock(in_channels, out_channels),
-            *[BasicBlock(out_channels, out_channels, *args, **kwargs)
+            BasicBlock(in_chan, out_chan, dil_arr),
+            *[BasicBlock(out_chan, out_chan, dil_arr, *args, **kwargs)
                 for _ in range(n-1)]
         )
 
@@ -151,6 +162,7 @@ class ResUNet(nn.Module):
         in_channels = 2 if dual else 1
         out_channels = 2 if masks else 1
         in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
+        dil_arr = [[1, 3, 7], [1, 3, 7], [1, 3], [1], [1]]
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
             nn.Conv2d(in_channels, block_sizes[0], kernel_size=7, padding=3),
@@ -162,14 +174,15 @@ class ResUNet(nn.Module):
             nn.Mish()
         )
         encoder_layers = nn.ModuleList([
-            ResidualLayer(out_channels, out_channels, n)
-            for (in_channels, out_channels), n in zip(in_out_sizes,
-                                                      depths)
+            ResidualLayer(out_channels, out_channels, d, n)
+            for (in_channels, out_channels), d, n in zip(in_out_sizes,
+                                                         dil_arr, depths)
         ])
         decoder_layers = nn.ModuleList([
-            ResidualLayer(in_channels, in_channels, n)
-            for (in_channels, out_channels), n in zip(in_out_sizes[::-1],
-                                                      [2 for _ in depths])
+            ResidualLayer(in_channels, in_channels, d, n)
+            for (in_channels, out_channels), d, n in zip(in_out_sizes[::-1],
+                                                         dil_arr[::-1],
+                                                         [2 for _ in depths])
         ])  # decoder layers are fixed at depth 2
 
         self.encode = nn.ModuleList([])  # All modules must be initialised here
