@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
-import torch.nn.functional as F
+# import torch.nn.functional as F
 import pytorch_lightning as pl
 
 from torchvision.ops import sigmoid_focal_loss
@@ -10,11 +10,14 @@ from torchvision.ops import sigmoid_focal_loss
 import data_utils
 
 
-def maskedL1loss(output, target, input, reduction):
-    mask = torch.abs(input[0] - input[1])
+def maskedL1loss(output, target, inputs, reduction='mean'):
+    mask = torch.abs(inputs[0] - inputs[1])
     loss = torch.abs(output - target)
+    loss = (1 + 10 * mask) * loss
     if reduction == "mean":
         loss = torch.mean(loss)
+    if reduction == "sum":
+        loss = torch.sum(loss)
     return loss
 
 
@@ -32,7 +35,7 @@ class LightningModel(pl.LightningModule):
         self.dual = dual
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.criterion = sigmoid_focal_loss if masks else F.l1_loss
+        self.criterion = sigmoid_focal_loss if masks else maskedL1loss
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
@@ -61,7 +64,10 @@ class LightningModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        loss = self.criterion(outputs, labels, reduction='mean')
+        if self.masks:
+            loss = self.criterion(outputs, labels, reduction='mean')
+        else:
+            loss = self.criterion(outputs, labels, inputs)
 
         self.log("train_loss", loss, on_step=True, on_epoch=True,
                  prog_bar=True, logger=True)
@@ -69,8 +75,8 @@ class LightningModel(pl.LightningModule):
         # if self.masks:
         #     output = outputs.detach().cpu().numpy()
         #     label = labels.detach().cpu().numpy()
-        #     pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
-        #
+        #     pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 /
+        #             np.size(output[0]))
         #     # IoU of averaged over FG and BG
         #     output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
         #     output[1] = output[0] > 0.7
@@ -96,14 +102,18 @@ class LightningModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        val_loss = self.criterion(outputs, labels, reduction='mean')
+        if self.masks:
+            val_loss = self.criterion(outputs, labels, reduction='mean')
+        else:
+            val_loss = self.criterion(outputs, labels, inputs)
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
 
         if self.masks:
             output = outputs.detach().cpu().numpy()
             label = labels.detach().cpu().numpy()
-            pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+            pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 /
+                    np.size(output[0]))
 
             # IoU of averaged over FG and BG
             output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
@@ -116,7 +126,7 @@ class LightningModel(pl.LightningModule):
             # factor of 2 cancels from 2 channels and average
             dc = np.sum(2 * inter / np.size(output))
 
-            self.log('pixelacc', pixelacc, on_epoch=True, sync_dist=True,
+            self.log('pixelacc', pacc, on_epoch=True, sync_dist=True,
                      prog_bar=True, logger=True)
             self.log('IoU', iou, on_epoch=True, sync_dist=True,
                      prog_bar=True, logger=True)
@@ -161,7 +171,8 @@ class LightningModel(pl.LightningModule):
         ax[0, 2].set_title("Prediction", fontsize=10)
         ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
-        save_path = f"outputs/figures/{loc}/{subdir}/{self.current_epoch}-{batch_idx}"
+        save_path = f"outputs/figures/{loc}/{subdir}/" + \
+                    f"{self.current_epoch}-{batch_idx}"
         plt.savefig(save_path + ".png", dpi=600)
         plt.close()
 
@@ -171,7 +182,7 @@ class LightningModel(pl.LightningModule):
         test_loss = self.criterion(outputs, labels, reduction='mean')
         output = outputs.detach().cpu().numpy()
         label = labels.detach().cpu().numpy()
-        pixelacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+        pacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
 
         # IoU of averaged over FG and BG
         output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
@@ -186,7 +197,7 @@ class LightningModel(pl.LightningModule):
 
         self.log('test_loss', test_loss, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
-        self.log('pixelacc', pixelacc, on_epoch=True, sync_dist=True,
+        self.log('pixelacc', pacc, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
         self.log('IoU', iou, on_epoch=True, sync_dist=True,
                  prog_bar=True, logger=True)
