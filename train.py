@@ -1,5 +1,3 @@
-import argparse
-
 import torch
 import pytorch_lightning as pl
 from torchvision.models.segmentation import fcn_resnet50
@@ -7,59 +5,22 @@ from torchvision.models.segmentation import fcn_resnet50
 from backbones import ResNet_backbone, ResUNet
 from lightningmodel import LightningModel
 
-# Disable Randomness
-pl.utilities.seed.seed_everything(2022)
 
-
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train_path",
-                        help="Path to directory of training datasets")
-    parser.add_argument("--valid_path",
-                        help="Path to directory of validation datasets",
-                        default=None)
-    parser.add_argument("--test_path",
-                        help="Path to directory of testing datasets",
-                        default=None)
-    parser.add_argument("--size",
-                        help="Image shape as (SIZE, 2*SIZE)")
-    parser.add_argument("--lr",
-                        help="Initial learning rate",
-                        default=0.001)
-    parser.add_argument("--batch_size",
-                        help="Number of samples to include in each batch")
-    parser.add_argument("--backbone",
-                        help="Backbone of model, resnet or resunet",
-                        default="resnet")
-    parser.add_argument("--layers",
-                        help="How many layers of ResNet to use (18 or 50)",
-                        default=50)
-    parser.add_argument("--freeze",
-                        help="How many layers of the backbone to freeze")
-    parser.add_argument("--masks",
-                        help="Train for segmentation or frame prediciton",
-                        default=False)
-    parser.add_argument("--dual",
-                        help="Whether to use single or dual image inputs",
-                        default=False)
-    parser.add_argument("--checkpoint",
-                        help="Path to checkpoint",
-                        default=False)
-
-    parser = pl.Trainer.add_argparse_args(parser)
-    args = parser.parse_args()
-    trainer = pl.Trainer.from_argparse_args(args)
+def main(hparams, *args):
+    pl.utilities.seed.seed_everything(2022)
+    trainer = pl.Trainer.from_argparse_args(
+        hparams,
+        strategy=pl.strategies.DDPStrategy(find_unused_parameters=False))
     # shell passes all values as strings
-    masks = True if args.masks == "True" else False
-    dual = True if args.dual == "True" else False
-    lr = float(args.lr)
-    batch_size = int(args.batch_size)
-    image_shape = (int(args.size), 2*int(args.size))
-    layers = int(args.layers)
-    freeze = int(args.freeze)
+    masks = True if hparams.masks == "True" else False
+    dual = True if hparams.dual == "True" else False
+    lr = float(hparams.lr)
+    batch_size = int(hparams.batch_size)
+    image_shape = (int(hparams.size), 2 * int(hparams.size))
+    layers = int(hparams.layers)
+    freeze = int(hparams.freeze)
 
-    match args.backbone:
+    match hparams.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
         case "baseline":
             model = fcn_resnet50(pretrained=False,
@@ -86,13 +47,13 @@ if __name__ == '__main__':
             model = ResUNet(masks=masks,
                             freeze=freeze)
 
-    if args.checkpoint:
+    if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
-            args.checkpoint,
+            hparams.checkpoint,
             base_model=model,
             lr=lr,
-            train_path=args.train_path,
-            valid_path=args.valid_path,
+            train_path=hparams.train_path,
+            valid_path=hparams.valid_path,
             image_shape=image_shape,
             batch_size=batch_size,
             shuffle=True,
@@ -102,8 +63,8 @@ if __name__ == '__main__':
         model = LightningModel(
             base_model=model,
             lr=lr,
-            train_path=args.train_path,
-            valid_path=args.valid_path,
+            train_path=hparams.train_path,
+            valid_path=hparams.valid_path,
             image_shape=image_shape,
             batch_size=batch_size,
             shuffle=True,

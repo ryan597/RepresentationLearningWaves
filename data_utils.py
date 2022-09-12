@@ -16,12 +16,13 @@ import torchvision.transforms.functional as TF
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_shape, masks=False, dual=False, aug=False):
+    def __init__(self, path, image_shape, masks=False, dual=False, aug=False, channels=1):
         self.image_shape = image_shape
         self.folder_path = path
         self.masks = masks
         self.dual = dual
         self.aug = aug
+        self.channels = channels
         self.folders = glob.glob("v*", root_dir=self.folder_path)
         if masks:
             self.sequences = self.generate_masks()
@@ -41,17 +42,19 @@ class InputSequence(Dataset):
         # normal = T.Normalize(mean=[0.485, 0.456, 0.406],
         #                     std=[0.229, 0.224, 0.225])
 
-        if self.dual:  # 6 channels
-            # image1 = normal(torch.stack((image1, image1, image1), dim=0))
-            #image1 = torch.stack((image1, image1, image1), dim=0)
-            # image2 = normal(torch.stack((image2, image2, image2), dim=0))
-            #image2 = torch.stack((image2, image2, image2), dim=0)
+        if self.dual:
+            if self.channels == 3:  # Deal with pretrained RGB models
+                image1 = torch.stack((image1, image1, image1), dim=0)
+                image2 = torch.stack((image2, image2, image2), dim=0)
+                input_images = torch.cat((image1, image2), dim=0)
+            else:
+                input_images = torch.cat((image1[None], image2[None]), dim=0)
+        else:
+            if self.channels == 3:
+                input_images = torch.stack((image2, image2, image2), dim=0)
+            else:
+                input_images = image2[None]
 
-            input_images = torch.cat((image1[None], image2[None]), dim=0)
-        else:  # 3 channels
-            #input_images = torch.stack((image2, image2, image2), dim=0)
-            input_images = image2[None]
-            # input_images = normal(input_images)
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
         else:
@@ -129,10 +132,10 @@ class InputSequence(Dataset):
 
 
 def load_data(path, image_shape, batch_size=10, shuffle=True,
-              masks=False, dual=False, aug=False):
-    dataset = InputSequence(path, image_shape, masks, dual, aug)
+              masks=False, dual=False, aug=False, channels=1):
+    dataset = InputSequence(path, image_shape, masks, dual, aug, channels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=20, persistent_workers=True,
+                            num_workers=4, persistent_workers=True,
                             pin_memory=True)
     return dataloader
 

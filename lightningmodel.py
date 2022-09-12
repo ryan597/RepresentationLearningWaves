@@ -13,7 +13,7 @@ import data_utils
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(inputs[0] - inputs[1])
     loss = torch.abs(output - target)
-    loss = (1 + 10 * mask) * loss
+    loss = (mask ** 2) * loss
     if reduction == "mean":
         loss = torch.mean(loss)
     if reduction == "sum":
@@ -24,7 +24,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, dual=False):
+                 masks=False, dual=False, channels=1):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -35,6 +35,7 @@ class LightningModel(pl.LightningModule):
         self.dual = dual
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.channels = channels
         self.criterion = sigmoid_focal_loss if masks else maskedL1loss
         self.save_hyperparameters(ignore=['base_model'])
 
@@ -51,15 +52,15 @@ class LightningModel(pl.LightningModule):
             threshold=0.0001,
             verbose=True)
         lr_scheduler_config = {
-                "scheduler": lr_scheduler,
-                "monitor": "train_loss",
-                "interval": "epoch",
-                "frequency": 1
-                }
+            "scheduler": lr_scheduler,
+            "monitor": "train_loss",
+            "interval": "epoch",
+            "frequency": 1
+        }
         return {
-                "optimizer": optimizer,
-                "lr_scheduler": lr_scheduler_config
-                }
+            "optimizer": optimizer,
+            "lr_scheduler": lr_scheduler_config
+        }
 
     def training_step(self, batch, batch_idx):
         inputs, labels = batch
@@ -69,8 +70,8 @@ class LightningModel(pl.LightningModule):
         else:
             loss = self.criterion(outputs, labels, inputs)
 
-        self.log("train_loss", loss, on_step=True, on_epoch=True,
-                 prog_bar=True, logger=True)
+        self.log("train_loss", loss, on_epoch=True, on_step=False,
+                 prog_bar=True, logger=True, sync_dist=True)
 
         # if self.masks:
         #     output = outputs.detach().cpu().numpy()
@@ -213,7 +214,8 @@ class LightningModel(pl.LightningModule):
             shuffle=self.shuffle,
             masks=self.masks,
             dual=self.dual,
-            aug=True
+            aug=True,
+            channels=self.channels
             )
 
     def val_dataloader(self):
@@ -224,7 +226,8 @@ class LightningModel(pl.LightningModule):
             shuffle=False,
             masks=self.masks,
             dual=self.dual,
-            aug=False
+            aug=False,
+            channels=self.channels
         )
 
     def test_dataloader(self):
@@ -235,5 +238,6 @@ class LightningModel(pl.LightningModule):
             shuffle=False,
             masks=self.masks,
             dual=self.dual,
-            aug=False
+            aug=False,
+            channels=self.channels
         )

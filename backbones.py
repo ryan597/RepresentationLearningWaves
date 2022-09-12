@@ -17,11 +17,11 @@ class BasicBlock(nn.Module):
         for d in dil_arr:
             block = nn.Sequential(
                 nn.Conv2d(in_chan, out_chan, kernel_size=3,
-                          padding='same', dialtion=d, *args, **kwargs),
+                          padding='same', dilation=d, *args, **kwargs),
                 nn.BatchNorm2d(out_chan),
                 nn.Mish(),
                 nn.Conv2d(out_chan, out_chan, kernel_size=3,
-                          padding='same', dialtion=d, *args, **kwargs),
+                          padding='same', dilation=d, *args, **kwargs),
                 nn.BatchNorm2d(out_chan),
                 nn.Mish(),
                 )
@@ -162,7 +162,8 @@ class ResUNet(nn.Module):
         in_channels = 2 if dual else 1
         out_channels = 2 if masks else 1
         in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
-        dil_arr = [[1, 3, 7], [1, 3, 7], [1, 3], [1], [1]]
+        #dil_arr = [[1, 3, 7], [1, 3, 7], [1, 3], [1], [1]]
+        dil_arr = [[1], [1], [1], [1], [1]]
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
             nn.Conv2d(in_channels, block_sizes[0], kernel_size=7, padding=3),
