@@ -40,21 +40,26 @@ class InputSequence(Dataset):
         image2 = self.fetch_image(p2)
         image3 = self.fetch_image(p3)
         image1, image2, image3 = self.transform(image1, image2, image3)
-        # normal = T.Normalize(mean=[0.485, 0.456, 0.406],
-        #                     std=[0.229, 0.224, 0.225])
+        normal = T.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])
 
         if self.dual:
             if self.channels == 3:  # Deal with pretrained RGB models
                 image1 = torch.stack((image1, image1, image1), dim=0)
                 image2 = torch.stack((image2, image2, image2), dim=0)
+                # Normalise for pretrained models
+                image1 = normal(image1)
+                image2 = normal(image2)
                 input_images = torch.cat((image1, image2), dim=0)
             else:
+                # add channel dim and cat along channel
                 input_images = torch.cat((image1[None], image2[None]), dim=0)
         else:
             if self.channels == 3:
                 input_images = torch.stack((image2, image2, image2), dim=0)
+                input_images = normal(input_images)
             else:
-                input_images = image2[None]
+                input_images = image2[None]  # add channel dimension
 
         if self.masks:
             image3 = torch.stack((image3, 1 - image3), dim=0)
@@ -65,33 +70,34 @@ class InputSequence(Dataset):
     def fetch_image(self, path):
         return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
 
-    def check_seq(self, p1, p2, p3):
-        if (int(p2[3:-4]) - int(p1[3:-4]) == 1 and
-           int(p3[3:-4]) - int(p2[3:-4]) == 1):
+    def check_seq(self, p1, p2, p3, step=1):
+        # ensure all images are same timestep apart
+        if (int(p2[3:-4]) - int(p1[3:-4]) == step and
+           int(p3[3:-4]) - int(p2[3:-4]) == step):
             return True
         else:
             return False
 
-    def generate_sequences(self):
+    def generate_sequences(self, step):
         sequences = {}
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)
+            files = sorted(files)[0::step]  # take every Nth (N=step) element
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                if self.check_seq(img1, img2, img3):
+                if self.check_seq(img1, img2, img3, step=step):
                     sequences[counter] = (img1, img2, img3)
                     counter += 1
         return sequences
 
-    def generate_masks(self):
+    def generate_masks(self, step):
         sequences = {}
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)
+            files = sorted(files)[0::step]  # take every Nth (N=step) element
             for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                if self.check_seq(img1, img2, img3):
+                if self.check_seq(img1, img2, img3, step=step):
                     img3 = "/masks/BW/" + img2[3:]  # get mask of img2
                     if exists(self.folder_path + img3):
                         sequences[counter] = (img1, img2, img3)
