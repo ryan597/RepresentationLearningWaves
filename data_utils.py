@@ -17,7 +17,7 @@ import torchvision.transforms.functional as TF
 
 class InputSequence(Dataset):
     def __init__(self, path, image_shape, masks=False,
-                 seq_length=2, aug=False, channels=1, step=1):
+                 seq_length=2, step=1, aug=False, channels=1):
         self.image_shape = image_shape
         self.folder_path = path
         self.masks = masks
@@ -79,14 +79,14 @@ class InputSequence(Dataset):
     def fetch_image(self, path):
         return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
 
-    def check_seq(self, step=1, *args):
+    def check_seq(self, *args, step=1):
         # ensure all images are same timestep apart
         for img1, img2 in zip(args, args[1:]):
-            if (int(img1[3:-4]) - int(img2[3:-4]) != step):
+            if (int(img2[3:-4]) - int(img1[3:-4]) != step):
                 return False
         return True
 
-    def generate_sequences(self, step):
+    def generate_sequences(self):
         # Generate sequence of 5 images with same timestep,
         # if only using a seq of length 3, we simply ignore images 1 & 2 later.
         # Avoids extra complications in ensuring the sequences tested on are
@@ -95,23 +95,23 @@ class InputSequence(Dataset):
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)[0::step]  # take every Nth (N=step) element
+            files = sorted(files)[0::self.step]  # take every Nth (N=step) element
             for (img1, img2, img3, img4, img5) in \
               zip(files, files[1:], files[2:], files[3:], files[4:]):
-                if self.check_seq(img1, img2, img3, img4, img5, step=step):
+                if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
                     sequences[counter] = (img1, img2, img3, img4, img5)
                     counter += 1
         return sequences
 
-    def generate_masks(self, step):
+    def generate_masks(self):
         sequences = {}
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)[0::step]  # take every Nth (N=step) element
+            files = sorted(files)[0::self.step]  # take every Nth (N=step) element
             for (img1, img2, img3, img4, img5) in \
               zip(files, files[1:], files[2:], files[3:], files[4:]):
-                if self.check_seq(img1, img2, img3, img4, img5, step=step):
+                if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
                     img5 = "/masks/BW/" + img4[3:]  # get mask of img4
                     if exists(self.folder_path + img5):
                         sequences[counter] = (img1, img2, img3, img4, img5)
@@ -153,8 +153,8 @@ class InputSequence(Dataset):
 
 
 def load_data(path, image_shape, batch_size=10, shuffle=True,
-              masks=False, seq_length=3, aug=False, channels=1):
-    dataset = InputSequence(path, image_shape, masks, seq_length, aug, channels)
+              masks=False, seq_length=3, step=1, aug=False, channels=1):
+    dataset = InputSequence(path, image_shape, masks, seq_length, step, aug, channels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
                             num_workers=4, persistent_workers=True,
                             pin_memory=True)
