@@ -16,7 +16,8 @@ import torchvision.transforms.functional as TF
 
 
 class InputSequence(Dataset):
-    def __init__(self, path, image_shape, masks=False, dual=False, aug=False, channels=1):
+    def __init__(self, path, image_shape, masks=False,
+                 dual=False, aug=False, channels=1):
         self.image_shape = image_shape
         self.folder_path = path
         self.masks = masks
