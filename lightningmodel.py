@@ -216,7 +216,7 @@ class LightningModel(pl.LightningModule):
             dual=self.dual,
             aug=True,
             channels=self.channels
-            )
+        )
 
     def val_dataloader(self):
         return data_utils.load_data(

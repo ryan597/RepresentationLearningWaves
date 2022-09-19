@@ -10,7 +10,15 @@ def main(hparams, *args):
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(
         hparams,
-        strategy=pl.strategies.DDPStrategy(find_unused_parameters=False))
+        strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
+        enable_checkpointing=True,
+        check_val_every_n_epoch=5,
+        logger=True,
+        num_sanity_val_steps=0,
+        gradient_clip_val=0.5,
+        accumulate_grad_batches=50,
+        default_root_dir="outputs/",
+        auto_scale_batch_size="binsearch")
     # shell passes all values as strings
     masks = True if hparams.masks == "True" else False
     dual = True if hparams.dual == "True" else False
@@ -23,6 +31,7 @@ def main(hparams, *args):
     match hparams.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
         case "baseline":
+            channels = 3
             model = fcn_resnet50(pretrained=False,
                                  num_classes=2,
                                  pretrained_backbone=False)
@@ -38,12 +47,14 @@ def main(hparams, *args):
                     param.requires_grad = False
         # RESNET_BACKBONE : 2 input images, no pre-training
         case "resnet":
+            channels = 1
             model = ResNet_backbone(layers=layers,
                                     freeze=freeze,
                                     masks=masks,
                                     dual=dual)
         # ResUNet model
         case "resunet":
+            channels = 1
             model = ResUNet(masks=masks,
                             freeze=freeze)
 
@@ -58,7 +69,8 @@ def main(hparams, *args):
             batch_size=batch_size,
             shuffle=True,
             masks=masks,
-            dual=dual)
+            dual=dual,
+            channels=channels)
     else:
         model = LightningModel(
             base_model=model,
@@ -69,7 +81,8 @@ def main(hparams, *args):
             batch_size=batch_size,
             shuffle=True,
             masks=masks,
-            dual=dual)
+            dual=dual,
+            channels=channels)
 
     trainer.fit(model)
 
