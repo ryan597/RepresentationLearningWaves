@@ -11,9 +11,9 @@ import data_utils
 
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
-    mask = torch.abs(inputs[0] - inputs[1])
+    mask = torch.abs(inputs[0] - inputs[-1])
     loss = torch.abs(output - target)
-    loss = (mask ** 2) * loss
+    loss = mask * loss
     if reduction == "mean":
         loss = torch.mean(loss)
     if reduction == "sum":
@@ -24,7 +24,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, seq_length=2, channels=1):
+                 masks=False, seq_length=2, channels=1, step=1):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -36,6 +36,7 @@ class LightningModel(pl.LightningModule):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.channels = channels
+        self.step = step
         self.criterion = sigmoid_focal_loss if masks else maskedL1loss
         self.save_hyperparameters(ignore=['base_model'])
 
@@ -113,8 +114,7 @@ class LightningModel(pl.LightningModule):
         if self.masks:
             output = outputs.detach().cpu().numpy()
             label = labels.detach().cpu().numpy()
-            pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 /
-                    np.size(output[0]))
+            pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0]))
 
             # IoU of averaged over FG and BG
             output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
@@ -214,6 +214,7 @@ class LightningModel(pl.LightningModule):
             shuffle=self.shuffle,
             masks=self.masks,
             seq_length=self.seq_length,
+            step=self.step,
             aug=True,
             channels=self.channels
         )
@@ -226,6 +227,7 @@ class LightningModel(pl.LightningModule):
             shuffle=False,
             masks=self.masks,
             seq_length=self.seq_length,
+            step=self.step,
             aug=False,
             channels=self.channels
         )
@@ -238,6 +240,7 @@ class LightningModel(pl.LightningModule):
             shuffle=False,
             masks=self.masks,
             seq_length=self.seq_length,
+            step=self.step,
             aug=False,
             channels=self.channels
         )
