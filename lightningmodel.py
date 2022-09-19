@@ -24,7 +24,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, dual=False, channels=1):
+                 masks=False, seq_length=2, channels=1):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -32,7 +32,7 @@ class LightningModel(pl.LightningModule):
         self.image_shape = image_shape
         self.lr = lr
         self.masks = masks
-        self.dual = dual
+        self.seq_length = seq_length
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.channels = channels
@@ -213,7 +213,7 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             masks=self.masks,
-            dual=self.dual,
+            seq_length=self.seq_length,
             aug=True,
             channels=self.channels
         )
@@ -225,7 +225,7 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=False,
             masks=self.masks,
-            dual=self.dual,
+            seq_length=self.seq_length,
             aug=False,
             channels=self.channels
         )
@@ -237,7 +237,7 @@ class LightningModel(pl.LightningModule):
             batch_size=self.batch_size,
             shuffle=False,
             masks=self.masks,
-            dual=self.dual,
+            seq_length=self.seq_length,
             aug=False,
             channels=self.channels
         )
