@@ -18,9 +18,9 @@ if __name__ == "__main__":
     parser.add_argument("--masks",
                         help="Train for segmentation or frame prediciton",
                         default=False)
-    parser.add_argument("--dual",
-                        help="Whether to use single or dual image inputs",
-                        default=False)
+    parser.add_argument("--seq_length",
+                        help="Length of sequence to use",
+                        default=2)
     parser.add_argument("--checkpoint",
                         help="Path to checkpoint",
                         default=False)

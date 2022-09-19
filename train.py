@@ -21,7 +21,7 @@ def main(hparams, *args):
         auto_scale_batch_size="binsearch")
     # shell passes all values as strings
     masks = True if hparams.masks == "True" else False
-    dual = True if hparams.dual == "True" else False
+    seq_length = int(hparams.seq_length)
     lr = float(hparams.lr)
     batch_size = int(hparams.batch_size)
     image_shape = (int(hparams.size), 2 * int(hparams.size))
@@ -47,16 +47,16 @@ def main(hparams, *args):
                     param.requires_grad = False
         # RESNET_BACKBONE : 2 input images, no pre-training
         case "resnet":
-            channels = 1
+            channels = 3
             model = ResNet_backbone(layers=layers,
                                     freeze=freeze,
-                                    masks=masks,
-                                    dual=dual)
+                                    masks=masks)
         # ResUNet model
         case "resunet":
             channels = 1
             model = ResUNet(masks=masks,
-                            freeze=freeze)
+                            freeze=freeze,
+                            seq_length=seq_length)
 
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
@@ -69,7 +69,7 @@ def main(hparams, *args):
             batch_size=batch_size,
             shuffle=True,
             masks=masks,
-            dual=dual,
+            seq_length=seq_length,
             channels=channels)
     else:
         model = LightningModel(
@@ -81,7 +81,7 @@ def main(hparams, *args):
             batch_size=batch_size,
             shuffle=True,
             masks=masks,
-            dual=dual,
+            seq_length=seq_length,
             channels=channels)
 
     trainer.fit(model)
