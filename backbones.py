@@ -24,7 +24,7 @@ class BasicBlock(nn.Module):
                           padding='same', dilation=d, *args, **kwargs),
                 nn.BatchNorm2d(out_chan),
                 nn.Mish(),
-                )
+            )
             self.blocks.append(block)
 
     def forward(self, x):
@@ -40,7 +40,7 @@ class ResidualLayer(nn.Module):
         self.downsample = nn.Sequential(
             BasicBlock(in_chan, out_chan, dil_arr),
             *[BasicBlock(out_chan, out_chan, dil_arr, *args, **kwargs)
-                for _ in range(n-1)]
+                for _ in range(n - 1)]
         )
 
     def forward(self, x):
@@ -73,20 +73,18 @@ class Decoder(nn.Module):
 
 
 class ResNet_backbone(nn.Module):
-    def __init__(self, layers=50, freeze=5, masks=False, dual=False):
+    def __init__(self, layers=50, freeze=5, masks=False):
         super().__init__()
         self.masks = masks
-        self.dual = dual
         if layers == 50:
-            channels = [[2048 + 2048*dual, 512], [512, 64], [64, 1]]
+            channels = [[4096, 512], [512, 64], [64, 1]]
             backbone = TVmodels.resnet.resnet50(
                 pretrained=False,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
-            channels = [[512 + 512*dual, 256],
-                        [256, 128], [128, 64], [64, 1]]
+            channels = [[1024, 256], [256, 128], [128, 64], [64, 1]]
             backbone = TVmodels.resnet.resnet18(
                 pretrained=False)
             backbone.load_state_dict(
@@ -100,13 +98,9 @@ class ResNet_backbone(nn.Module):
                 for param in child.parameters():
                     param.requires_grad = False
 
-        if not dual:
-            self.backbone = backbone
-            self.decode = Decoder(channels)
-        else:
-            self.backbone1 = copy.deepcopy(backbone)
-            self.backbone2 = copy.deepcopy(backbone)
-            self.decode = Decoder(channels)
+        self.backbone1 = copy.deepcopy(backbone)
+        self.backbone2 = copy.deepcopy(backbone)
+        self.decode = Decoder(channels)
 
         # Freeze the decoder if masks
         # if self.masks:
@@ -115,15 +109,11 @@ class ResNet_backbone(nn.Module):
         #            param.requires_grad = False
 
     def forward(self, x):
-        if not self.dual:
-            x = self.backbone(x)
-            x = self.decode(x)
-        else:
-            img1 = x[:, 0:3]
-            img2 = x[:, 3:6]
-            x1 = self.backbone1(img1)
-            x2 = self.backbone2(img2)
-            x = self.decode(torch.cat((x1, x2), dim=1))
+        img1 = x[:, 0:3]
+        img2 = x[:, 3:6]
+        x1 = self.backbone1(img1)
+        x2 = self.backbone2(img2)
+        x = self.decode(torch.cat((x1, x2), dim=1))
         if self.masks:
             x = torch.cat((x.softmax(dim=0), 1 - x.softmax(dim=0)), dim=1)
         return x
@@ -152,17 +142,17 @@ class ResUNet(nn.Module):
         ResUNet object derived from nn.Module, can be trained in a standard
         PyTorch training loop.
     """
-    def __init__(self, masks=True, freeze=0, dual=True,
+    def __init__(self, masks=True, freeze=0, seq_length=2,
                  block_sizes=[32, 64, 128, 256, 512, 1024],
                  depths=[2, 3, 5, 3, 2]):
         super().__init__()
         self.masks = masks
         self.freeze = freeze
-        self.dual = dual
-        in_channels = 2 if dual else 1
+        self.seq_length = seq_length
+        in_channels = seq_length - 1
         out_channels = 2 if masks else 1
         in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
-        #dil_arr = [[1, 3, 7], [1, 3, 7], [1, 3], [1], [1]]
+        # dil_arr = [[1, 3, 7], [1, 3, 7], [1, 3], [1], [1]]
         dil_arr = [[1], [1], [1], [1], [1]]
         # Use a gate layer with kernel=7, wider receptive vision at start
         self.gate = nn.Sequential(
@@ -192,7 +182,7 @@ class ResUNet(nn.Module):
                 nn.MaxPool2d(kernel_size=2, stride=2),
                 nn.Conv2d(in_chan, out_chan, kernel_size=1),
                 layer
-                )
+            )
             self.encode.append(combinedlayer)
 
         self.decode_upsample = nn.ModuleList([])
@@ -225,7 +215,7 @@ class ResUNet(nn.Module):
 
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
-        for i, upsample, layer in zip(range(len(skip)+1),
+        for i, upsample, layer in zip(range(len(skip) + 1),
                                       self.decode_upsample,
                                       self.decode):
             x = upsample(x)
