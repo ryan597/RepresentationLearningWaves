@@ -18,23 +18,25 @@ if __name__ == "__main__":
     parser.add_argument("--masks",
                         help="Train for segmentation or frame prediciton",
                         default=False)
-    parser.add_argument("--seq_length",
-                        help="Length of sequence to use",
-                        default=2)
     parser.add_argument("--checkpoint",
                         help="Path to checkpoint",
                         default=False)
-    parser.opt_list("--backbone", default="resnet", type=str,
-        options=["resnet", "baseline", "resunet"],
-        help="Backbone of model, resnet or resunet")
-    parser.opt_list("--size", default=256, type=int,
-        options=[128, 256])
+
+    parser.opt_list("--step", default=1, type=int,
+        options=[1, 3, 5], tunable=True)
+    parser.opt_list("--seq_length", default=2, type=int,
+        options=[2, 3, 5], tunable=True)
     parser.opt_list("--freeze", default=5, type=int,
-        options=[0, 2, 4, 6, 8], tunable=True)
-    parser.opt_list("--lr", default=0.001, type=float,
-        options=[1e-4], tunable=True)
+        options=[0, 3, 5, 7, 9], tunable=False)
+
+    parser.opt_list("--backbone", default="resnet", type=str,
+        options=["resnet", "baseline", "resunet"], tunable=False)
+    parser.opt_list("--size", default=256, type=int,
+        options=[128, 256], tunable=False)
+    parser.opt_list("--lr", default=0.0001, type=float,
+        options=[1e-4], tunable=False)
     parser.opt_list("--layers", default=50, type=int,
-        options=[50], tunable=True)
+        options=[50], tunable=False)
 
     parser = pl.Trainer.add_argparse_args(parser)
 
@@ -61,4 +63,4 @@ if __name__ == "__main__":
     cluster.add_command("export NCCL_IB_DISABLE=1")
 
     cluster.optimize_parallel_cluster_gpu(
-        main, nb_trials=15, job_name="gridSearch")
+        main, nb_trials=9, job_name="gridSearch")
