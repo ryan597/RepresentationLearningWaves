@@ -17,13 +17,14 @@ import torchvision.transforms.functional as TF
 
 class InputSequence(Dataset):
     def __init__(self, path, image_shape, masks=False,
-                 dual=False, aug=False, channels=1):
+                 seq_length=2, aug=False, channels=1, step=1):
         self.image_shape = image_shape
         self.folder_path = path
         self.masks = masks
-        self.dual = dual
+        self.seq_length = seq_length
         self.aug = aug
         self.channels = channels
+        self.step = step
         self.folders = glob.glob("v*", root_dir=self.folder_path)
         if masks:
             self.sequences = self.generate_masks()
@@ -35,58 +36,70 @@ class InputSequence(Dataset):
         return self.dataset_len
 
     def __getitem__(self, index):
-        p1, p2, p3 = self.sequences[index]
-        image1 = self.fetch_image(p1)
-        image2 = self.fetch_image(p2)
-        image3 = self.fetch_image(p3)
-        image1, image2, image3 = self.transform(image1, image2, image3)
+        p1, p2, p3, p4, p5 = self.sequences[index]
+        img5 = self.fetch_image(p5)
+        img4 = self.fetch_image(p4)
+        img3 = self.fetch_image(p3)
+        img2 = self.fetch_image(p2)
+        img1 = self.fetch_image(p1)
+        img1, img2, img3, img4, img5 = self.transform(img1, img2, img3, img4, img5)
         normal = T.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
 
-        if self.dual:
-            if self.channels == 3:  # Deal with pretrained RGB models
-                image1 = torch.stack((image1, image1, image1), dim=0)
-                image2 = torch.stack((image2, image2, image2), dim=0)
-                # Normalise for pretrained models
-                image1 = normal(image1)
-                image2 = normal(image2)
-                input_images = torch.cat((image1, image2), dim=0)
-            else:
-                # add channel dim and cat along channel
-                input_images = torch.cat((image1[None], image2[None]), dim=0)
-        else:
+        if self.seq_length == 2:
             if self.channels == 3:
-                input_images = torch.stack((image2, image2, image2), dim=0)
+                input_images = torch.stack((img4, img4, img4), dim=0)
                 input_images = normal(input_images)
             else:
-                input_images = image2[None]  # add channel dimension
+                input_images = img4[None]  # add channel dimension
+
+        if self.seq_length == 3:
+            if self.channels == 3:  # Deal with pretrained RGB models
+                img3 = torch.stack((img3, img3, img3), dim=0)
+                img4 = torch.stack((img4, img4, img4), dim=0)
+                # Normalise for pretrained models
+                img3 = normal(img3)
+                img4 = normal(img4)
+                input_images = torch.cat((img3, img4), dim=0)
+            else:
+                # add channel dim and cat along channel
+                input_images = torch.cat((img3[None], img4[None]), dim=0)
+
+        if self.seq_length == 5:
+            input_images = torch.cat((img1[None], img2[None],
+                img3[None], img4[None]), dim=0)
 
         if self.masks:
-            image3 = torch.stack((image3, 1 - image3), dim=0)
+            img5 = torch.stack((img5, 1 - img5), dim=0)
         else:
-            image3 = image3[None]  # Add a channel dimension
-        return (input_images, image3)
+            img5 = img5[None]  # Add a channel dimension
+
+        return (input_images, img5)
 
     def fetch_image(self, path):
         return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
 
-    def check_seq(self, p1, p2, p3, step=1):
+    def check_seq(self, step=1, *args):
         # ensure all images are same timestep apart
-        if (int(p2[3:-4]) - int(p1[3:-4]) == step and
-           int(p3[3:-4]) - int(p2[3:-4]) == step):
-            return True
-        else:
-            return False
+        for img1, img2 in zip(args, args[1:]):
+            if (int(img1[3:-4]) - int(img2[3:-4]) != step):
+                return False
+        return True
 
     def generate_sequences(self, step):
+        # Generate sequence of 5 images with same timestep,
+        # if only using a seq of length 3, we simply ignore images 1 & 2 later.
+        # Avoids extra complications in ensuring the sequences tested on are
+        # the same
         sequences = {}
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
             files = sorted(files)[0::step]  # take every Nth (N=step) element
-            for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                if self.check_seq(img1, img2, img3, step=step):
-                    sequences[counter] = (img1, img2, img3)
+            for (img1, img2, img3, img4, img5) in \
+              zip(files, files[1:], files[2:], files[3:], files[4:]):
+                if self.check_seq(img1, img2, img3, img4, img5, step=step):
+                    sequences[counter] = (img1, img2, img3, img4, img5)
                     counter += 1
         return sequences
 
@@ -96,11 +109,12 @@ class InputSequence(Dataset):
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
             files = sorted(files)[0::step]  # take every Nth (N=step) element
-            for (img1, img2, img3) in zip(files[:-2], files[1:-1], files[2:]):
-                if self.check_seq(img1, img2, img3, step=step):
-                    img3 = "/masks/BW/" + img2[3:]  # get mask of img2
-                    if exists(self.folder_path + img3):
-                        sequences[counter] = (img1, img2, img3)
+            for (img1, img2, img3, img4, img5) in \
+              zip(files, files[1:], files[2:], files[3:], files[4:]):
+                if self.check_seq(img1, img2, img3, img4, img5, step=step):
+                    img5 = "/masks/BW/" + img4[3:]  # get mask of img4
+                    if exists(self.folder_path + img5):
+                        sequences[counter] = (img1, img2, img3, img4, img5)
                         counter += 1
         return sequences
 
@@ -139,8 +153,8 @@ class InputSequence(Dataset):
 
 
 def load_data(path, image_shape, batch_size=10, shuffle=True,
-              masks=False, dual=False, aug=False, channels=1):
-    dataset = InputSequence(path, image_shape, masks, dual, aug, channels)
+              masks=False, seq_length=3, aug=False, channels=1):
+    dataset = InputSequence(path, image_shape, masks, seq_length, aug, channels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
                             num_workers=4, persistent_workers=True,
                             pin_memory=True)
