@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -13,7 +14,7 @@ import data_utils
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(inputs[0] - inputs[-1])
     loss = torch.abs(output - target)
-    loss = mask * loss
+    loss = (mask**2) * loss
     if reduction == "mean":
         loss = torch.mean(loss)
     if reduction == "sum":
@@ -97,7 +98,7 @@ class LightningModel(pl.LightningModule):
         #     self.log('Dice Coef', dc, on_step=False, on_epoch=True,
         #              prog_bar=True, logger=True)
 
-        if batch_idx == 2:
+        if batch_idx in [2, 20, 50, 100]:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -134,7 +135,7 @@ class LightningModel(pl.LightningModule):
             self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
                      prog_bar=True, logger=True)
 
-        if batch_idx == 2:
+        if batch_idx in [2, 20, 50, 100]:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
@@ -144,7 +145,7 @@ class LightningModel(pl.LightningModule):
                                subplot_kw={'xticks': [], 'yticks': []})
         for i, [input_image, pred_image, gt_image] in enumerate(zip(
                 inputs, outputs, labels)):
-            input_image = input_image.detach().cpu().numpy()[1]
+            input_image = input_image.detach().cpu().numpy()[-1]
             gt_image = gt_image.detach().cpu().numpy()[0]
             pred_image = pred_image.detach().cpu().numpy()[0]
             cmap = 'gray'
@@ -173,7 +174,7 @@ class LightningModel(pl.LightningModule):
         ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
         save_path = f"outputs/figures/{loc}/{subdir}/" + \
-                    f"{self.current_epoch}-{batch_idx}"
+                    f"{self.current_epoch}-{batch_idx}_{os.environ['SLURM_JOB_ID']}"
         plt.savefig(save_path + ".png", dpi=600)
         plt.close()
 

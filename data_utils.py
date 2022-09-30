@@ -95,12 +95,13 @@ class InputSequence(Dataset):
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)[0::self.step]  # take every Nth (N=step) element
-            for (img1, img2, img3, img4, img5) in \
-              zip(files, files[1:], files[2:], files[3:], files[4:]):
-                if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
-                    sequences[counter] = (img1, img2, img3, img4, img5)
-                    counter += 1
+            for n in range(self.step):
+                f_temp = sorted(files)[n::self.step]  # take every Nth (N=step) element
+                for (img1, img2, img3, img4, img5) in \
+                  zip(f_temp, f_temp[1:], f_temp[2:], f_temp[3:], f_temp[4:]):
+                    if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
+                        sequences[counter] = (img1, img2, img3, img4, img5)
+                        counter += 1
         return sequences
 
     def generate_masks(self):
@@ -108,11 +109,12 @@ class InputSequence(Dataset):
         counter = 0
         for folder in self.folders:
             files = glob.glob(f"{folder}/*.png", root_dir=self.folder_path)
-            files = sorted(files)[0::self.step]  # take every Nth (N=step) element
-            for (img1, img2, img3, img4, img5) in \
-              zip(files, files[1:], files[2:], files[3:], files[4:]):
-                if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
-                    img5 = "/masks/BW/" + img4[3:]  # get mask of img4
+            for n in range(self.step):
+                f_temp = sorted(files)[n::self.step]  # take every Nth (N=step) element
+                for (img1, img2, img3, img4, img5) in \
+                  zip(f_temp, f_temp[1:], f_temp[2:], f_temp[3:], f_temp[4:]):
+                    if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
+                        img5 = "/masks/BW/" + img4[3:]  # get mask of img4
                     if exists(self.folder_path + img5):
                         sequences[counter] = (img1, img2, img3, img4, img5)
                         counter += 1

@@ -10,15 +10,17 @@ def main(hparams, *args):
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(
         hparams,
+        max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
         check_val_every_n_epoch=5,
         logger=True,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
-        accumulate_grad_batches=50,
+        accumulate_grad_batches=10,
         default_root_dir="outputs/",
-        auto_scale_batch_size="binsearch")
+        auto_scale_batch_size="binsearch",
+        precision=16)
     # shell passes all values as strings
     masks = True if hparams.masks == "True" else False
     seq_length = int(hparams.seq_length)
@@ -27,6 +29,7 @@ def main(hparams, *args):
     image_shape = (int(hparams.size), 2 * int(hparams.size))
     layers = int(hparams.layers)
     freeze = int(hparams.freeze)
+    step = int(hparams.step)
 
     match hparams.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
@@ -70,6 +73,7 @@ def main(hparams, *args):
             shuffle=True,
             masks=masks,
             seq_length=seq_length,
+            step=step,
             channels=channels)
     else:
         model = LightningModel(
@@ -82,6 +86,7 @@ def main(hparams, *args):
             shuffle=True,
             masks=masks,
             seq_length=seq_length,
+            step=step,
             channels=channels)
 
     trainer.fit(model)
