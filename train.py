@@ -3,6 +3,7 @@ import pytorch_lightning as pl
 from torchvision.models.segmentation import fcn_resnet50
 
 from backbones import ResNet_backbone, ResUNet
+from AttnUnet import AttentionUNet
 from lightningmodel import LightningModel
 
 
@@ -57,6 +58,11 @@ def main(hparams, *args):
             model = ResUNet(masks=masks,
                             freeze=freeze,
                             seq_length=seq_length)
+
+        case "attention":
+            channels = 1
+            out_chan = 2 if masks else 1
+            model = AttentionUNet(seq_length-1, out_chan)
 
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
