@@ -1,11 +1,10 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 
-import torch
+import matplotlib.pyplot as plt
+import numpy as np
 # import torch.nn.functional as F
 import pytorch_lightning as pl
-
+import torch
 from torchvision.ops import sigmoid_focal_loss
 
 import data_utils
@@ -98,7 +97,7 @@ class LightningModel(pl.LightningModule):
         #     self.log('Dice Coef', dc, on_step=False, on_epoch=True,
         #              prog_bar=True, logger=True)
 
-        if batch_idx in [2, 20, 50, 100]:  # check some batches
+        if batch_idx in [300, 500, 1000, 2000, 2500]:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -135,7 +134,7 @@ class LightningModel(pl.LightningModule):
             self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
                      prog_bar=True, logger=True)
 
-        if batch_idx in [2, 20, 50, 100]:  # check some batches
+        if batch_idx in [300, 500, 1000, 2000, 2500] or self.masks:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):

@@ -28,7 +28,7 @@ Creating a virtual environment to install the dependencies packages is recommend
 
 ```bash
 conda env create -f environment.yml
-conda activate rlwaves
+conda activate rlwave
 ```
 
 #### exporting dependencies to yml file
@@ -40,8 +40,8 @@ conda env export > environment.yml
 ### Using [`pip`](https://pypi.org/project/pip/)
 
 ```bash
-python3 -m venv rlwaves
-source rlwaves/bin/activate
+python3 -m venv rlwave
+source rlwave/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -50,24 +50,6 @@ pip install -r requirements.txt
 ```bash
 pip freeze >> requirements.txt
 ```
-
-<details>
-    <summary>Dependencies list</summary>
-
-    - h5py
-    - keras
-    - keras
-    - matplotlib
-    - numpy
-    - pickleshare
-    - pillow
-    - scikit-learn
-    - scipy
-    - seaborn
-    - tensorflow
-    - albumentations
-
-</details>
 
 ---
 

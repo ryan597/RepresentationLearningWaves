@@ -138,7 +138,7 @@ class AttentionUNet(nn.Module):
         d5 = self.Up5(e5)
 
         s4 = self.Att5(gate=d5, skip_connection=e4)
-        d5 = torch.cat((s4, d5), dim=1) # concatenate attention-weighted skip connection with previous layer output
+        d5 = torch.cat((s4, d5), dim=1)  # concatenate attention-weighted skip connection with previous layer output
         d5 = self.UpConv5(d5)
 
         d4 = self.Up4(d5)
