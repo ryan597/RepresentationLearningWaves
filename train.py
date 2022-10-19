@@ -1,9 +1,11 @@
-import torch
+from argparse import ArgumentParser
+
 import pytorch_lightning as pl
+import torch
 from torchvision.models.segmentation import fcn_resnet50
 
-from backbones import ResNet_backbone, ResUNet
 from AttnUnet import AttentionUNet
+from backbones import ResNet_backbone, ResUNet
 from lightningmodel import LightningModel
 
 
@@ -65,7 +67,7 @@ def main(hparams, *args):
         case "attention":
             channels = 1
             out_chan = 2 if masks else 1
-            model = AttentionUNet(seq_length-1, out_chan)
+            model = AttentionUNet(seq_length - 1, out_chan)
 
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
@@ -95,6 +97,37 @@ def main(hparams, *args):
             step=step,
             channels=channels)
 
-    trainer.fit(model)
+    if hparams.testing:
+        trainer.test(ckpt_path="hparams.checkpoint")
+    else:
+        trainer.fit(model)
 
-    trainer.save_checkpoint("outputs/model_end.ckpt")
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--train_path", default="data",
+                        help="Path to directory of training datasets")
+    parser.add_argument("--valid_path", default="data/test",
+                        help="Path to directory of validation datasets")
+    parser.add_argument("--test_path",
+                        help="Path to directory of testing datasets",
+                        default=None)
+    parser.add_argument("--batch_size", default=5,
+                        help="Number of samples to include in each batch")
+    parser.add_argument("--masks",
+                        help="Train for segmentation or frame prediciton",
+                        default=False)
+    parser.add_argument("--checkpoint",
+                        help="Path to checkpoint",
+                        default=False)
+    parser.add_argument("--step", default=1)
+    parser.add_argument("--seq_length", default=2)
+    parser.add_argument("--freeze", default=0)
+    parser.add_argument("--size", default=512)
+    parser.add_argument("--lr", default=0.001)
+    parser.add_argument("--layers", default=50)
+    parser.add_argument("--testing", default=False)
+
+    hparams = parser.parse_args()
+
+    main(hparams)
