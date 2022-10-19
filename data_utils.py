@@ -3,16 +3,17 @@ Contains useful functions for the PyTorch model, class definition for the data
 pipeline, loading and for generating the results.
 """
 
-from os.path import exists
-import cv2
 import glob
 import random
-# import matplotlib.pyplot as plt
+from os.path import exists
 
+import PIL
 import torch
-from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
+from torch.utils.data import DataLoader, Dataset
+
+# import matplotlib.pyplot as plt
 
 
 class InputSequence(Dataset):
@@ -38,15 +39,12 @@ class InputSequence(Dataset):
     def __getitem__(self, index):
         p1, p2, p3, p4, p5 = self.sequences[index]
         img5 = self.fetch_image(p5)
-        img4 = self.fetch_image(p4)
-        img3 = self.fetch_image(p3)
-        img2 = self.fetch_image(p2)
-        img1 = self.fetch_image(p1)
-        img1, img2, img3, img4, img5 = self.transform(img1, img2, img3, img4, img5)
         normal = T.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
 
         if self.seq_length == 2:
+            img4 = self.fetch_image(p4)
+            img4, img5 = self.transform(img4, img5)
             if self.channels == 3:
                 input_images = torch.stack((img4, img4, img4), dim=0)
                 input_images = normal(input_images)
@@ -54,6 +52,9 @@ class InputSequence(Dataset):
                 input_images = img4[None]  # add channel dimension
 
         if self.seq_length == 3:
+            img4 = self.fetch_image(p4)
+            img3 = self.fetch_image(p3)
+            img3, img4, img5 = self.transform(img3, img4, img5)
             if self.channels == 3:  # Deal with pretrained RGB models
                 img3 = torch.stack((img3, img3, img3), dim=0)
                 img4 = torch.stack((img4, img4, img4), dim=0)
@@ -66,8 +67,12 @@ class InputSequence(Dataset):
                 input_images = torch.cat((img3[None], img4[None]), dim=0)
 
         if self.seq_length == 5:
-            input_images = torch.cat((img1[None], img2[None],
-                img3[None], img4[None]), dim=0)
+            img4 = self.fetch_image(p4)
+            img3 = self.fetch_image(p3)
+            img2 = self.fetch_image(p2)
+            img1 = self.fetch_image(p1)
+            img1, img2, img3, img4, img5 = self.transform(img1, img2, img3, img4, img5)
+            input_images = torch.cat((img1[None], img2[None], img3[None], img4[None]), dim=0)
 
         if self.masks:
             img5 = torch.stack((img5, 1 - img5), dim=0)
@@ -77,7 +82,8 @@ class InputSequence(Dataset):
         return (input_images, img5)
 
     def fetch_image(self, path):
-        return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
+        # return cv2.imread(self.folder_path + "/" + path, cv2.IMREAD_GRAYSCALE)
+        return PIL.Image.open(self.folder_path + "/" + path)
 
     def check_seq(self, *args, step=1):
         # ensure all images are same timestep apart
@@ -114,7 +120,7 @@ class InputSequence(Dataset):
                 for (img1, img2, img3, img4, img5) in \
                   zip(f_temp, f_temp[1:], f_temp[2:], f_temp[3:], f_temp[4:]):
                     if self.check_seq(img1, img2, img3, img4, img5, step=self.step):
-                        img5 = "/masks/BW/" + img4[3:]  # get mask of img4
+                        img5 = "/masks/" + img4[3:]  # get mask of img4
                     if exists(self.folder_path + img5):
                         sequences[counter] = (img1, img2, img3, img4, img5)
                         counter += 1
@@ -123,10 +129,11 @@ class InputSequence(Dataset):
     def transform(self, *args):
         images = []
         if not self.aug:
-            transform = T.ToTensor()
+            totensor = T.ToTensor()
             resize = T.Resize(size=self.image_shape)
             for image in args:
-                images.append(resize(transform(image))[0])
+                temp = totensor(image)
+                images.append(resize(temp)[0])
             return images
 
         hflip = random.random()
@@ -158,7 +165,7 @@ def load_data(path, image_shape, batch_size=10, shuffle=True,
               masks=False, seq_length=3, step=1, aug=False, channels=1):
     dataset = InputSequence(path, image_shape, masks, seq_length, step, aug, channels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=4, persistent_workers=True,
+                            num_workers=8, persistent_workers=True,
                             pin_memory=True)
     return dataloader
 
