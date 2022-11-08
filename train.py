@@ -65,7 +65,11 @@ def main(hparams, *args):
         case "attention":
             channels = 1
             out_chan = 2 if masks else 1
-            model = AttentionUNet(seq_length-1, out_chan)
+            model = AttentionUNet(seq_length - 1, out_chan)
+
+        case _:  # default cases
+            print("model not specified. Exiting...")
+            exit(1)
 
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
