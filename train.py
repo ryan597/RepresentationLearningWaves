@@ -18,6 +18,7 @@ def main(hparams, *args):
         enable_checkpointing=True,
         check_val_every_n_epoch=5,
         logger=True,
+        log_every_n_steps=1,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
         accumulate_grad_batches=10,
@@ -68,6 +69,14 @@ def main(hparams, *args):
             channels = 1
             out_chan = 2 if masks else 1
             model = AttentionUNet(seq_length - 1, out_chan)
+            if freeze > 0:
+                c = 0
+                for child in model.children():
+                    for param in child.parameters():
+                        param.requires_grad = False
+                    if c == freeze:
+                        break
+                    c += 1
 
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
@@ -82,7 +91,8 @@ def main(hparams, *args):
             masks=masks,
             seq_length=seq_length,
             step=step,
-            channels=channels)
+            channels=channels,
+            strict=False)
     else:
         model = LightningModel(
             base_model=model,
@@ -97,29 +107,22 @@ def main(hparams, *args):
             step=step,
             channels=channels)
 
-    if hparams.testing:
-        trainer.test(ckpt_path="hparams.checkpoint")
+    if hparams.testing == "True":  # argparse makes everything strings
+        trainer.test()
     else:
         trainer.fit(model)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--train_path", default="data",
-                        help="Path to directory of training datasets")
-    parser.add_argument("--valid_path", default="data/test",
-                        help="Path to directory of validation datasets")
-    parser.add_argument("--test_path",
-                        help="Path to directory of testing datasets",
-                        default=None)
-    parser.add_argument("--batch_size", default=5,
-                        help="Number of samples to include in each batch")
-    parser.add_argument("--masks",
-                        help="Train for segmentation or frame prediciton",
-                        default=False)
-    parser.add_argument("--checkpoint",
-                        help="Path to checkpoint",
-                        default=False)
+    parser = pl.Trainer.add_argparse_args(parser)
+    parser.add_argument("--train_path", default="data")
+    parser.add_argument("--valid_path", default="data/test")
+    parser.add_argument("--test_path", default=None)
+    parser.add_argument("--batch_size", default=5)
+    parser.add_argument("--masks", default=False)
+    parser.add_argument("--checkpoint", default=False)
+    parser.add_argument("--backbone", default="resunet")
     parser.add_argument("--step", default=1)
     parser.add_argument("--seq_length", default=2)
     parser.add_argument("--freeze", default=0)
