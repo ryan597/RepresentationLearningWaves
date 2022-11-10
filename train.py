@@ -78,6 +78,10 @@ def main(hparams, *args):
                         break
                     c += 1
 
+        case _:  # default cases
+            print("model not specified. Exiting...")
+            exit(1)
+
     if hparams.checkpoint:
         model = LightningModel.load_from_checkpoint(
             hparams.checkpoint,
