@@ -6,6 +6,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
+from torchmetrics.functional import dice, jaccard_index
 
 import data_utils
 
@@ -15,16 +16,16 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
     loss = torch.abs(output - target)
     loss = (mask**2) * loss
     if reduction == "mean":
-        loss = torch.mean(loss)
+        loss = loss.mean()
     if reduction == "sum":
-        loss = torch.sum(loss)
+        loss = loss.sum()
     return loss
 
 
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, seq_length=2, channels=1, step=1):
+                 masks=False, seq_length=2, channels=1, step=1, thresh=0.2):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -38,6 +39,7 @@ class LightningModel(pl.LightningModule):
         self.channels = channels
         self.step = step
         self.criterion = sigmoid_focal_loss if masks else maskedL1loss
+        self.thresh = thresh
         self.save_hyperparameters(ignore=['base_model'])
 
     def forward(self, x):
@@ -71,33 +73,21 @@ class LightningModel(pl.LightningModule):
         else:
             loss = self.criterion(outputs, labels, inputs)
 
-        self.log("train_loss", loss, on_epoch=True, on_step=False,
-                 prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        if self.masks:
+            output = outputs.detach().cpu()
+            label = labels.detach().cpu()
 
-        # if self.masks:
-        #     output = outputs.detach().cpu().numpy()
-        #     label = labels.detach().cpu().numpy()
-        #     pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 /
-        #             np.size(output[0]))
-        #     # IoU of averaged over FG and BG
-        #     output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
-        #     output[1] = output[0] > 0.7
-        #     inter = np.sum(output * label, axis=1)
-        #     union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
-        #     iou = np.mean((inter + 1) / (union + 1))
-        #
-        #     # Dice coef
-        #     # factor of 2 cancels from 2 channels and average
-        #     dc = np.sum(2 * inter / np.size(output))
-        #
-        #     self.log('pixelacc', pixelacc, on_step=False, on_epoch=True,
-        #              prog_bar=True, logger=True)
-        #     self.log('IoU', iou, on_step=False, on_epoch=True,
-        #              prog_bar=True, logger=True)
-        #     self.log('Dice Coef', dc, on_step=False, on_epoch=True,
-        #              prog_bar=True, logger=True)
+            # Threshold the FG prob
+            output[:, 0] = output[:, 0] > self.thresh
+            output[:, 1] = 1 - output[:, 0]
+            iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
+            dc = dice(output.int(), label.int(), average="macro", num_classes=2)
 
-        if batch_idx in [300, 500, 1000, 2000, 2500]:  # check some batches
+            self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+        if batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -108,33 +98,22 @@ class LightningModel(pl.LightningModule):
             val_loss = self.criterion(outputs, labels, reduction='mean')
         else:
             val_loss = self.criterion(outputs, labels, inputs)
-        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True,
-                 prog_bar=True, logger=True)
+        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
         if self.masks:
-            output = outputs.detach().cpu().numpy()
-            label = labels.detach().cpu().numpy()
-            pacc = (np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0]))
+            output = outputs.detach().cpu()
+            label = labels.detach().cpu()
 
-            # IoU of averaged over FG and BG
-            output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
-            output[1] = output[0] > 0.7
-            inter = np.sum(output * label, axis=1)
-            union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
-            iou = np.mean((inter + 1) / (union + 1))
+            # Threshold the FG prob at 0.2
+            output[:, 0] = output[:, 0] > self.thresh
+            output[:, 1] = 1 - output[:, 0]
+            iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
+            dc = dice(output.int(), label.int(), average="macro", num_classes=2)
 
-            # Dice coef
-            # factor of 2 cancels from 2 channels and average
-            dc = np.sum(2 * inter / np.size(output))
+            self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-            self.log('pixelacc', pacc, on_epoch=True, sync_dist=True,
-                     prog_bar=True, logger=True)
-            self.log('IoU', iou, on_epoch=True, sync_dist=True,
-                     prog_bar=True, logger=True)
-            self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
-                     prog_bar=True, logger=True)
-
-        if batch_idx in [300, 500, 1000, 2000, 2500] or self.masks:  # check some batches
+        if batch_idx in [50, 150, 250, 300, 500] or self.masks:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
@@ -155,7 +134,7 @@ class LightningModel(pl.LightningModule):
                 title = "Segmentation"
                 prob_diff = "Probability Map"
                 subdir = "masks"
-                thresh_image = pred_image >= 0.3
+                thresh_image = pred_image >= 0.2
                 ax[i, 2].imshow(thresh_image, cmap=cmap)
                 ax[i, 3].imshow(pred_image, cmap=cmap)
             else:
@@ -181,29 +160,19 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         test_loss = self.criterion(outputs, labels, reduction='mean')
-        output = outputs.detach().cpu().numpy()
-        label = labels.detach().cpu().numpy()
-        pacc = np.sum((output[0] > 0.3) == label[0]) * 100 / np.size(output[0])
+        output = outputs.detach().cpu()
+        label = labels.detach().cpu()
 
-        # IoU of averaged over FG and BG
-        output[0] = output[0] > 0.3  # Threshold the FG prob at 0.3
-        output[1] = output[0] > 0.7
-        inter = np.sum(output * label, axis=1)
-        union = np.sum(output, axis=1) + np.sum(label, axis=1) - inter
-        iou = np.mean((inter + 1) / (union + 1))
+        # Threshold the FG prob
+        output[:, 0] = output[:, 0] > self.thresh
+        output[:, 1] = 1 - output[:, 0]
+        iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
+        dc = dice(output.int(), label.int(), average="macro", num_classes=2)
 
-        # Dice coef
-        # factor of 2 cancels from 2 channels and average
-        dc = np.sum(2 * inter / np.size(output))
+        self.log('test_loss', test_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        self.log('test_IoU', iou, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        self.log('test_Dice', dc, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
-        self.log('test_loss', test_loss, on_epoch=True, sync_dist=True,
-                 prog_bar=True, logger=True)
-        self.log('pixelacc', pacc, on_epoch=True, sync_dist=True,
-                 prog_bar=True, logger=True)
-        self.log('IoU', iou, on_epoch=True, sync_dist=True,
-                 prog_bar=True, logger=True)
-        self.log('Dice Coef', dc, on_epoch=True, sync_dist=True,
-                 prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
 
     def train_dataloader(self):
@@ -244,3 +213,23 @@ class LightningModel(pl.LightningModule):
             aug=False,
             channels=self.channels
         )
+
+    def on_load_checkpoint(self, checkpoint):
+        # Hack for size mis-match in state_dict
+        state_dict = checkpoint["state_dict"]
+        model_state_dict = self.state_dict()
+        is_changed = False
+        for k in state_dict:
+            if k in model_state_dict:
+                if state_dict[k].shape != model_state_dict[k].shape:
+                    # logger.info(f"Skip loading parameter: {k}, "
+                    #             f"required shape: {model_state_dict[k].shape}, "
+                    #             f"loaded shape: {state_dict[k].shape}")
+                    state_dict[k] = model_state_dict[k]
+                    is_changed = True
+            else:
+                # self.logger.info(f"Dropping parameter {k}")
+                is_changed = True
+
+        if is_changed:
+            checkpoint.pop("optimizer_states", None)
