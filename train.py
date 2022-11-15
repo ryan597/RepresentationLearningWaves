@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+import argparse
 
 import pytorch_lightning as pl
 import torch
@@ -9,7 +9,7 @@ from backbones import ResNet_backbone, ResUNet
 from lightningmodel import LightningModel
 
 
-def main(hparams, *args):
+def main(hp, *args):
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(
         hparams,
@@ -24,18 +24,20 @@ def main(hparams, *args):
         accumulate_grad_batches=10,
         default_root_dir="outputs/",
         auto_scale_batch_size="binsearch",
-        precision=16)
-    # shell passes all values as strings
+        precision=16,
+        benchmark=True)
+
+    image_shape = (hp.size, 2 * hp.size)
+    """
     masks = True if hparams.masks == "True" else False
     seq_length = int(hparams.seq_length)
     lr = float(hparams.lr)
     batch_size = int(hparams.batch_size)
-    image_shape = (int(hparams.size), 2 * int(hparams.size))
     layers = int(hparams.layers)
     freeze = int(hparams.freeze)
     step = int(hparams.step)
-
-    match hparams.backbone:
+    """
+    match hp.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
         case "baseline":
             channels = 3
@@ -55,26 +57,26 @@ def main(hparams, *args):
         # RESNET_BACKBONE : 2 input images, no pre-training
         case "resnet":
             channels = 3
-            model = ResNet_backbone(layers=layers,
-                                    freeze=freeze,
-                                    masks=masks)
+            model = ResNet_backbone(layers=hp.layers,
+                                    freeze=hp.freeze,
+                                    masks=hp.masks)
         # ResUNet model
         case "resunet":
             channels = 1
-            model = ResUNet(masks=masks,
-                            freeze=freeze,
-                            seq_length=seq_length)
+            model = ResUNet(masks=hp.masks,
+                            freeze=hp.freeze,
+                            seq_length=hp.seq_length)
 
         case "attention":
             channels = 1
-            out_chan = 2 if masks else 1
-            model = AttentionUNet(seq_length - 1, out_chan)
-            if freeze > 0:
+            out_chan = 2 if hp.masks else 1
+            model = AttentionUNet(hp.seq_length - 1, out_chan)
+            if hp.freeze > 0:
                 c = 0
                 for child in model.children():
                     for param in child.parameters():
                         param.requires_grad = False
-                    if c == freeze:
+                    if c == hp.freeze:
                         break
                     c += 1
 
@@ -86,29 +88,29 @@ def main(hparams, *args):
         model = LightningModel.load_from_checkpoint(
             hparams.checkpoint,
             base_model=model,
-            lr=lr,
+            lr=hp.lr,
             train_path=hparams.train_path,
             valid_path=hparams.valid_path,
             image_shape=image_shape,
-            batch_size=batch_size,
+            batch_size=hp.batch_size,
             shuffle=True,
-            masks=masks,
-            seq_length=seq_length,
-            step=step,
+            masks=hp.masks,
+            seq_length=hp.seq_length,
+            step=hp.step,
             channels=channels,
             strict=False)
     else:
         model = LightningModel(
             base_model=model,
-            lr=lr,
+            lr=hp.lr,
             train_path=hparams.train_path,
             valid_path=hparams.valid_path,
             image_shape=image_shape,
-            batch_size=batch_size,
+            batch_size=hp.batch_size,
             shuffle=True,
-            masks=masks,
-            seq_length=seq_length,
-            step=step,
+            masks=hp.masks,
+            seq_length=hp.seq_length,
+            step=hp.step,
             channels=channels)
 
     if hparams.testing == "True":  # argparse makes everything strings
@@ -118,23 +120,25 @@ def main(hparams, *args):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser = pl.Trainer.add_argparse_args(parser)
-    parser.add_argument("--train_path", default="data")
-    parser.add_argument("--valid_path", default="data/test")
-    parser.add_argument("--test_path", default=None)
-    parser.add_argument("--batch_size", default=5)
-    parser.add_argument("--masks", default=False)
-    parser.add_argument("--checkpoint", default=False)
-    parser.add_argument("--backbone", default="resunet")
-    parser.add_argument("--step", default=1)
-    parser.add_argument("--seq_length", default=2)
-    parser.add_argument("--freeze", default=0)
-    parser.add_argument("--size", default=512)
-    parser.add_argument("--lr", default=0.001)
-    parser.add_argument("--layers", default=50)
-    parser.add_argument("--testing", default=False)
+    parser.add_argument("--train_path", default="data", type=str)
+    parser.add_argument("--valid_path", default="data/test", type=str)
+    parser.add_argument("--test_path", default=None, type=str)
+    parser.add_argument("--batch_size", default=5, type=int)
+    parser.add_argument("--masks", default=False, type=bool)
+    parser.add_argument("--checkpoint", default="", type=str)
+    parser.add_argument("--backbone", default="resunet", type=str)
+    parser.add_argument("--step", default=1, type=int)
+    parser.add_argument("--seq_length", default=2, type=int)
+    parser.add_argument("--freeze", default=0, type=int)
+    parser.add_argument("--size", default=512, type=int)
+    parser.add_argument("--lr", default=0.001, type=float)
+    parser.add_argument("--layers", default=50, type=int)
+    parser.add_argument("--testing", default=False, action="store_true")
 
     hparams = parser.parse_args()
+
+    print(hparams, flush=True)
 
     main(hparams)
