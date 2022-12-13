@@ -16,7 +16,7 @@ def main(hp, *args):
         max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
-        check_val_every_n_epoch=5,
+        check_val_every_n_epoch=1,
         logger=True,
         log_every_n_steps=1,
         num_sanity_val_steps=0,

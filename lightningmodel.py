@@ -52,11 +52,11 @@ class LightningModel(pl.LightningModule):
             mode="min",
             factor=0.1,
             patience=5,
-            threshold=0.0001,
+            threshold=0.001,
             verbose=True)
         lr_scheduler_config = {
             "scheduler": lr_scheduler,
-            "monitor": "train_loss",
+            "monitor": "val_loss",
             "interval": "epoch",
             "frequency": 1
         }
@@ -153,7 +153,7 @@ class LightningModel(pl.LightningModule):
 
         save_path = f"outputs/figures/{loc}/{subdir}/" + \
                     f"{self.current_epoch}-{batch_idx}_{os.environ['SLURM_JOB_ID']}"
-        plt.savefig(save_path + ".png", dpi=600)
+        plt.savefig(save_path + ".png", dpi=300)  # increase dpi for better quality figures (reduced to save space)
         plt.close()
 
     def test_step(self, batch, batch_idx):
