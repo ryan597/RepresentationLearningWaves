@@ -144,11 +144,12 @@ class ResUNet(nn.Module):
     """
     def __init__(self, masks=True, freeze=0, seq_length=2,
                  block_sizes=[32, 64, 128, 256, 512, 1024],
-                 depths=[2, 3, 5, 3, 2]):
+                 depths=[2, 3, 5, 3, 2], pretrain_bn=False):
         super().__init__()
         self.masks = masks
         self.freeze = freeze
         self.seq_length = seq_length
+        self.pretrain_bn = pretrain_bn
         in_channels = seq_length - 1
         out_channels = 2 if masks else 1
         in_out_sizes = list(zip(block_sizes, block_sizes[1:]))
@@ -215,6 +216,9 @@ class ResUNet(nn.Module):
 
         # decoder
         skip = skip[::-1][1:]  # Reverse skip for easy indexing, dont use first
+        if self.pretrain_bn:  # create a bottleneck for pretraining task to prevent "copy pasting" images
+            skip = skip * 0
+
         for i, upsample, layer in zip(range(len(skip) + 1),
                                       self.decode_upsample,
                                       self.decode):
