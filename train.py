@@ -12,7 +12,7 @@ from lightningmodel import LightningModel
 def main(hp, *args):
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(
-        hparams,
+        hp,
         max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
@@ -70,7 +70,7 @@ def main(hp, *args):
         case "attention":
             channels = 1
             out_chan = 2 if hp.masks else 1
-            model = AttentionUNet(hp.seq_length - 1, out_chan)
+            model = AttentionUNet(hp.seq_length - 1, out_chan, pretrain_bn=not hp.masks)
             if hp.freeze > 0:
                 c = 0
                 for child in model.children():
@@ -84,13 +84,13 @@ def main(hp, *args):
             print("model not specified. Exiting...")
             exit(1)
 
-    if hparams.checkpoint:
+    if hp.checkpoint:
         model = LightningModel.load_from_checkpoint(
-            hparams.checkpoint,
+            hp.checkpoint,
             base_model=model,
             lr=hp.lr,
-            train_path=hparams.train_path,
-            valid_path=hparams.valid_path,
+            train_path=hp.train_path,
+            valid_path=hp.valid_path,
             image_shape=image_shape,
             batch_size=hp.batch_size,
             shuffle=True,
@@ -103,8 +103,8 @@ def main(hp, *args):
         model = LightningModel(
             base_model=model,
             lr=hp.lr,
-            train_path=hparams.train_path,
-            valid_path=hparams.valid_path,
+            train_path=hp.train_path,
+            valid_path=hp.valid_path,
             image_shape=image_shape,
             batch_size=hp.batch_size,
             shuffle=True,
@@ -113,7 +113,7 @@ def main(hp, *args):
             step=hp.step,
             channels=channels)
 
-    if hparams.testing == "True":  # argparse makes everything strings
+    if hp.testing == "True":  # argparse makes everything strings
         trainer.test()
     else:
         trainer.fit(model)
@@ -139,6 +139,6 @@ if __name__ == "__main__":
 
     hparams = parser.parse_args()
 
-    print(hparams, flush=True)
+    # print(hparams, flush=True)
 
     main(hparams)
