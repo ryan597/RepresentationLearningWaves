@@ -14,7 +14,7 @@ import data_utils
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(inputs[0] - inputs[-1])
     loss = torch.abs(output - target)
-    loss = (mask**2) * loss
+    loss = (mask ** 2 + 1) * loss
     if reduction == "mean":
         loss = loss.mean()
     if reduction == "sum":
@@ -51,8 +51,8 @@ class LightningModel(pl.LightningModule):
             optimizer,
             mode="min",
             factor=0.1,
-            patience=5,
-            threshold=0.001,
+            patience=3,
+            threshold=0.01,
             verbose=True)
         lr_scheduler_config = {
             "scheduler": lr_scheduler,
@@ -84,8 +84,8 @@ class LightningModel(pl.LightningModule):
             iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
             dc = dice(output.int(), label.int(), average="macro", num_classes=2)
 
-            self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('IoU', iou, prog_bar=True, logger=True, sync_dist=False)
+            self.log('Dice', dc, prog_bar=True, logger=True, sync_dist=False)
 
         if batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
