@@ -86,8 +86,9 @@ class AttentionBlock(nn.Module):
 
 class AttentionUNet(nn.Module):
 
-    def __init__(self, img_ch=3, output_ch=1):
+    def __init__(self, img_ch=3, output_ch=1, pretrain_bn=False):
         super(AttentionUNet, self).__init__()
+        self.pretrain_bn = pretrain_bn
 
         self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
 
@@ -134,6 +135,12 @@ class AttentionUNet(nn.Module):
 
         e5 = self.MaxPool(e4)
         e5 = self.Conv5(e5)
+
+        if self.pretrain_bn:  # create a bottleneck for pretraining task to prevent "copy pasting" images
+            e4 = e4 * 0
+            e3 = e3 * 0
+            e2 = e2 * 0
+            e1 = e1 * 0
 
         d5 = self.Up5(e5)
 
