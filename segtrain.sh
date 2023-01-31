@@ -1,7 +1,7 @@
-#!bin/bash
+#!/bin/bash
 
-#SBATCH --job-name=seg
-#SBATCH --time=2:00:00
+#SBATCH --job-name=RLW
+#SBATCH --time=3:00:00
 #SBATCH --nodes=1
 #SBATCH --account=ndear024a
 #SBATCH --partition=GpuQ
@@ -20,23 +20,47 @@ export NCCL_SOCKET_IFNAME=eth0
 export NCCL_IB_DISABLE=1
 
 TRAIN_PATH="data"
-VALID_PATH="data"
+VALID_PATH="data/test"
 SIZE=512
 BATCH_SIZE=5
 MASKS=True
 LR=0.0001
 
-FREEZE=0
 
-STEP=1
-SEQ_LENGTH=5
+BACKBONE=$1
+STEP=$2
+SEQ_LENGTH=$3
+FREEZE=$4
 LAYERS=50
-CHECKPOINT="outputs/lightning_logs/version_1013214/checkpoints/epoch=39-step=2360.ckpt"
 
-echo "--train_path $TRAIN_PATH --valid_path $VALID_PATH --test_path $VALID_PATH --batch_size $BATCH_SIZE \
-    --masks $MASKS --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $size \
-    --lr $LR --layers $LAYERS --checkpoint $CHECKPOINT"
+CHECKPOINT="outputs/lightning_logs/version_1013214/checkpoints/epoch=39-step=2360.ckpt" # step 1, seq_length 5, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013215/checkpoints/epoch=39-step=2360.ckpt"  # step 1, seq_length 3, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013216/checkpoints/epoch=39-step=2360.ckpt"  # step 1, seq_length 2, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013217/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 5, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013218/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 3, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013220/checkpoints/epoch=39-step=2360.ckpt"  # step 5, seq_length 5, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013221/checkpoints/epoch=39-step=2360.ckpt"  # step 5, seq_length 3, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013224/checkpoints/epoch=39-step=2360.ckpt"  # step 10, seq_length 3, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013225/checkpoints/epoch=39-step=2360.ckpt"  # step 10, seq_length 2, ATTN
+
+#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
+#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
+
+
+
+ACCELERATOR="gpu"
+DEVICES=2
+NODES=1
+
+echo step: $STEP
+echo seq_length: $SEQ_LENGTH
+echo backbone: $BACKBONE
+echo freeze: $FREEZE
+echo checkpoint: $CHECKPOINT \n
+
 
 srun python3 train.py --train_path $TRAIN_PATH --valid_path $VALID_PATH --test_path $VALID_PATH --batch_size $BATCH_SIZE \
-    --masks $MASKS --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $size \
-    --lr $LR --layers $LAYERS --checkpoint $CHECKPOINT
+    --masks $MASKS --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $SIZE --backbone $BACKBONE \
+    --lr $LR --layers $LAYERS --accelerator $ACCELERATOR --devices $DEVICES --num_nodes $NODES --checkpoint $CHECKPOINT
+    #--testing True
