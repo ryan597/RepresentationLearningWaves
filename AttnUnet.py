@@ -13,10 +13,10 @@ class ConvBlock(nn.Module):
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.LeakyReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -33,7 +33,7 @@ class UpConv(nn.Module):
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=True),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            nn.LeakyReLU(inplace=True)
         )
 
     def forward(self, x):
@@ -164,5 +164,8 @@ class AttentionUNet(nn.Module):
         d2 = self.UpConv2(d2)
 
         out = self.Conv(d2)
+
+        if self.masks:
+            out = torch.sigmoid(out)
 
         return out
