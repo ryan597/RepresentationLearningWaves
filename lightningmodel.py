@@ -6,7 +6,7 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
-from torchmetrics.functional import dice, jaccard_index
+from torchmetrics.functional import dice, jaccard_index, multiscale_structural_similarity_index_measure
 
 import data_utils
 
@@ -14,7 +14,9 @@ import data_utils
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(inputs[0] - inputs[-1])
     loss = torch.abs(output - target)
-    loss = (mask ** 2 + 1) * loss
+    #loss = multiscale_structural_similarity_index_measure(output, target, reduction=None)
+    loss = (mask * 100 + 1) * loss
+
     if reduction == "mean":
         loss = loss.mean()
     if reduction == "sum":
@@ -25,7 +27,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, seq_length=2, channels=1, step=1, thresh=0.2):
+                 masks=False, seq_length=2, channels=1, step=1, thresh=0.5):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -41,6 +43,13 @@ class LightningModel(pl.LightningModule):
         self.criterion = sigmoid_focal_loss if masks else maskedL1loss
         self.thresh = thresh
         self.save_hyperparameters(ignore=['base_model'])
+
+        if masks:
+            os.makedirs(f"outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+            os.makedirs(f"outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        else:
+            os.makedirs(f"outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+            os.makedirs(f"outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
 
     def forward(self, x):
         return self.model(x)
@@ -79,10 +88,10 @@ class LightningModel(pl.LightningModule):
             label = labels.detach().cpu()
 
             # Threshold the FG prob
-            output[:, 0] = output[:, 0] > self.thresh
-            output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
-            dc = dice(output.int(), label.int(), average="macro", num_classes=2)
+            output = output[:, 0] > self.thresh
+            label = label[:, 0]
+            iou = jaccard_index(output.int(), label.int())
+            dc = dice(output.int(), label.int())
 
             self.log('IoU', iou, prog_bar=True, logger=True, sync_dist=False)
             self.log('Dice', dc, prog_bar=True, logger=True, sync_dist=False)
@@ -107,8 +116,8 @@ class LightningModel(pl.LightningModule):
             # Threshold the FG prob at 0.2
             output[:, 0] = output[:, 0] > self.thresh
             output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
-            dc = dice(output.int(), label.int(), average="macro", num_classes=2)
+            iou = jaccard_index(output.int(), label.int(), average=None, num_classes=2)[0]
+            dc = dice(output.int(), label.int(), average=None, num_classes=2)[0]
 
             self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
@@ -151,8 +160,8 @@ class LightningModel(pl.LightningModule):
         ax[0, 2].set_title("Prediction", fontsize=10)
         ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
 
-        save_path = f"outputs/figures/{loc}/{subdir}/" + \
-                    f"{self.current_epoch}-{batch_idx}_{os.environ['SLURM_JOB_ID']}"
+        save_path = f"outputs/figures/{loc}/{subdir}/{os.environ['SLURM_JOB_ID']}/" + \
+                    f"{self.current_epoch}-{batch_idx}"
         plt.savefig(save_path + ".png", dpi=300)  # increase dpi for better quality figures (reduced to save space)
         plt.close()
 
