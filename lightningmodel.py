@@ -6,16 +6,15 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
-from torchmetrics.functional import dice, jaccard_index, multiscale_structural_similarity_index_measure
+from torchmetrics.functional import dice, jaccard_index
 
 import data_utils
 
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
-    mask = torch.abs(inputs[0] - inputs[-1])
+    mask = torch.abs(inputs[0] - inputs[-1]) > 0.07
     loss = torch.abs(output - target)
-    #loss = multiscale_structural_similarity_index_measure(output, target, reduction=None)
-    loss = (mask * 100 + 1) * loss
+    loss = (mask * 10 + 1) * loss
 
     if reduction == "mean":
         loss = loss.mean()
