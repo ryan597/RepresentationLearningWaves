@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
 from torchmetrics.functional import dice, jaccard_index
+from sklearn.metrics import precision_score, recall_score, brier_score_loss
 
 import data_utils
 
@@ -82,18 +83,25 @@ class LightningModel(pl.LightningModule):
             loss = self.criterion(outputs, labels, inputs)
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        if self.masks:
+
+        if self.masks and self.epoch % 5 == 0:  # Don't run this so often in training step
             output = outputs.detach().cpu()
             label = labels.detach().cpu()
 
             # Threshold the FG prob
+            brier = brier_score_loss(label[:, 0], output[:, 0])
             output = output[:, 0] > self.thresh
             label = label[:, 0]
             iou = jaccard_index(output.int(), label.int())
             dc = dice(output.int(), label.int())
+            precision = precision_score(label, output)
+            recall = recall_score(label, output)
 
             self.log('IoU', iou, prog_bar=True, logger=True, sync_dist=False)
             self.log('Dice', dc, prog_bar=True, logger=True, sync_dist=False)
+            self.log('Pscore', precision, prog_bar=True, logger=True, sync_dist=False)
+            self.log('Rscore', recall, prog_bar=True, logger=True, sync_dist=False)
+            self.log('Bscore', brier, prog_bar=True, logger=True, sync_dist=False)
 
         if batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
@@ -112,14 +120,20 @@ class LightningModel(pl.LightningModule):
             output = outputs.detach().cpu()
             label = labels.detach().cpu()
 
+            brier = brier_score_loss(label[:, 0], output[:, 0])
             # Threshold the FG prob at 0.2
             output[:, 0] = output[:, 0] > self.thresh
             output[:, 1] = 1 - output[:, 0]
             iou = jaccard_index(output.int(), label.int(), average=None, num_classes=2)[0]
             dc = dice(output.int(), label.int(), average=None, num_classes=2)[0]
+            precision = precision_score(label, output)
+            recall = recall_score(label, output)
 
             self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Pscore', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Rscore', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Bscore', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         if batch_idx in [50, 150, 250, 300, 500] or self.masks:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
