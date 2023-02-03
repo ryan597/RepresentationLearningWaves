@@ -4,8 +4,7 @@ import pytorch_lightning as pl
 import torch
 from torchvision.models.segmentation import fcn_resnet50
 
-from AttnUnet import AttentionUNet
-from backbones import ResNet_backbone, ResUNet
+from backbones import ResNet_backbone, ResUNet, AttentionUNet
 from lightningmodel import LightningModel
 
 
