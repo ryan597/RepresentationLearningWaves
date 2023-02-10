@@ -15,14 +15,13 @@ def main(hp, *args):
         max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=5,
         logger=True,
-        log_every_n_steps=1,
+        log_every_n_steps=20,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
-        accumulate_grad_batches=10,
+        accumulate_grad_batches=30,
         default_root_dir="outputs/",
-        auto_scale_batch_size="binsearch",
         precision=16,
         benchmark=True)
 
@@ -62,26 +61,37 @@ def main(hp, *args):
         # ResUNet model
         case "resunet":
             channels = 1
-            model = ResUNet(masks=hp.masks,
-                            freeze=hp.freeze,
-                            seq_length=hp.seq_length)
+            model = ResUNet(hp.seq_length - 1,
+                            1,
+                            masks=hp.masks,
+                            pretrain_bn=not hp.masks)
 
         case "attention":
             channels = 1
-            out_chan = 2 if hp.masks else 1
-            model = AttentionUNet(hp.seq_length - 1, out_chan, pretrain_bn=not hp.masks)
-            if hp.freeze > 0:
-                c = 0
-                for child in model.children():
-                    for param in child.parameters():
-                        param.requires_grad = False
-                    if c == hp.freeze:
-                        break
-                    c += 1
+            model = AttentionUNet(hp.seq_length - 1,
+                                  1,
+                                  masks=hp.masks,
+                                  pretrain_bn=not hp.masks)
 
         case _:  # default cases
             print("model not specified. Exiting...")
             exit(1)
+
+    if hp.freeze > 0:
+        for param in model.Conv1.parameters():
+            param.requires_grad = False
+    if hp.freeze > 1:
+        for param in model.Conv2.parameters():
+            param.requires_grad = False
+    if hp.freeze > 2:
+        for param in model.Conv3.parameters():
+            param.requires_grad = False
+    if hp.freeze > 3:
+        for param in model.Conv4.parameters():
+            param.requires_grad = False
+    if hp.freeze > 4:
+        for param in model.Conv5.parameters():
+            param.requires_grad = False
 
     if hp.checkpoint:
         model = LightningModel.load_from_checkpoint(
@@ -116,6 +126,8 @@ def main(hp, *args):
         trainer.test()
     else:
         trainer.fit(model)
+
+    exit(0)
 
 
 if __name__ == "__main__":
