@@ -13,7 +13,7 @@ import data_utils
 
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
-    mask = torch.abs(inputs[0] - inputs[-1]) > 0.07
+    mask = torch.abs(inputs[0] - inputs[-1]) > 0.085
     loss = torch.abs(output - target)
     loss = (mask * 10 + 1) * loss
 
@@ -27,7 +27,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, seq_length=2, channels=1, step=1, thresh=0.5):
+                 masks=False, seq_length=2, channels=1, step=1, thresh=0.2):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -65,7 +65,7 @@ class LightningModel(pl.LightningModule):
             verbose=True)
         lr_scheduler_config = {
             "scheduler": lr_scheduler,
-            "monitor": "val_loss",
+            "monitor": "train_loss_epoch",
             "interval": "epoch",
             "frequency": 1
         }
@@ -81,29 +81,44 @@ class LightningModel(pl.LightningModule):
             loss = self.criterion(outputs, labels, reduction='mean')
         else:
             loss = self.criterion(outputs, labels, inputs)
+            if self.current_epoch == 25:
+                # Allow skip connections
+                self.model.pretrain_bn = False
+                # Freeze the encoder
+                for param in self.model.Conv1.parameters():
+                    param.requires_grad = False
+                for param in self.model.Conv2.parameters():
+                    param.requires_grad = False
+                for param in self.model.Conv3.parameters():
+                    param.requires_grad = False
+                for param in self.model.Conv4.parameters():
+                    param.requires_grad = False
+                for param in self.model.Conv5.parameters():
+                    param.requires_grad = False
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-        if self.masks and self.epoch % 5 == 0:  # Don't run this so often in training step
-            output = outputs.detach().cpu()
-            label = labels.detach().cpu()
+        # Debugging
+        # if self.masks and self.current_epoch % 5 == 0:
+        #    output = outputs.detach().cpu()
+        #    label = labels.detach().cpu()
+        #
+        #    # Threshold the FG prob
+        #    brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
+        #    output = output[:, 0] > self.thresh
+        #    label = label[:, 0]
+        #    iou = jaccard_index(output.int(), label.int(), average=None, num_classes=2)[0]
+        #    dc = dice(output.int(), label.int(), average=None, num_classes=2)[0]
+        #    precision = precision_score(label.flatten().int(), output.flatten().int(), zero_division=0)
+        #    recall = recall_score(label.flatten().int(), output.flatten().int(), zero_division=0)
+        #
+        #    self.log('IoU', iou, prog_bar=True, logger=True, sync_dist=False)
+        #    self.log('Dice', dc, prog_bar=True, logger=True, sync_dist=False)
+        #    self.log('P', precision, prog_bar=True, logger=True, sync_dist=False)
+        #    self.log('R', recall, prog_bar=True, logger=True, sync_dist=False)
+        #    self.log('B', brier, prog_bar=True, logger=True, sync_dist=False)
 
-            # Threshold the FG prob
-            brier = brier_score_loss(label[:, 0], output[:, 0])
-            output = output[:, 0] > self.thresh
-            label = label[:, 0]
-            iou = jaccard_index(output.int(), label.int())
-            dc = dice(output.int(), label.int())
-            precision = precision_score(label, output)
-            recall = recall_score(label, output)
-
-            self.log('IoU', iou, prog_bar=True, logger=True, sync_dist=False)
-            self.log('Dice', dc, prog_bar=True, logger=True, sync_dist=False)
-            self.log('Pscore', precision, prog_bar=True, logger=True, sync_dist=False)
-            self.log('Rscore', recall, prog_bar=True, logger=True, sync_dist=False)
-            self.log('Bscore', brier, prog_bar=True, logger=True, sync_dist=False)
-
-        if batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
+        if self.current_epoch % 5 == 0 and batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -116,33 +131,36 @@ class LightningModel(pl.LightningModule):
             val_loss = self.criterion(outputs, labels, inputs)
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
-        if self.masks:
+        # Monitor metrics in training, disable for speedup
+        if self.masks and self.current_epoch % 5 == 0:  # Don't run this so often
             output = outputs.detach().cpu()
             label = labels.detach().cpu()
 
-            brier = brier_score_loss(label[:, 0], output[:, 0])
-            # Threshold the FG prob at 0.2
+            brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
+            # Threshold the FG prob
             output[:, 0] = output[:, 0] > self.thresh
             output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output.int(), label.int(), average=None, num_classes=2)[0]
-            dc = dice(output.int(), label.int(), average=None, num_classes=2)[0]
-            precision = precision_score(label, output)
-            recall = recall_score(label, output)
+            iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
+            dc = dice(output.int(), label.int(), average=None, num_classes=2)
+            precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+            recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
 
             self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Pscore', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Rscore', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Bscore', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-        if batch_idx in [50, 150, 250, 300, 500] or self.masks:  # check some batches
+        if self.current_epoch % 5 == 0 and (torch.rand(1) > 0.7):  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
                                4,  # input, ground truth, pred, diff | cols
                                gridspec_kw={'wspace': 0.1, 'hspace': 0.1},
-                               subplot_kw={'xticks': [], 'yticks': []})
+                               subplot_kw={'xticks': [], 'yticks': []},
+                               figsize=(15, 10))
         for i, [input_image, pred_image, gt_image] in enumerate(zip(
                 inputs, outputs, labels)):
             input_image = input_image.detach().cpu().numpy()[-1]
@@ -156,8 +174,9 @@ class LightningModel(pl.LightningModule):
                 title = "Segmentation"
                 prob_diff = "Probability Map"
                 subdir = "masks"
-                thresh_image = pred_image >= 0.2
-                ax[i, 2].imshow(thresh_image, cmap=cmap)
+                thresh_pred = np.ma.masked_where(pred_image < 0.2, pred_image)
+                ax[i, 2].imshow(input_image, cmap=cmap)
+                ax[i, 2].imshow(thresh_pred, cmap='Reds', interpolation=None, alpha=0.7)
                 ax[i, 3].imshow(pred_image, cmap=cmap)
             else:
                 title = "Frame Prediciton"
@@ -167,11 +186,11 @@ class LightningModel(pl.LightningModule):
                 ax[i, 3].imshow(np.abs((gt_image - pred_image)), cmap=cmap)
             if i == 4:
                 break
-        fig.suptitle(f"Model Outputs - {title}", fontsize=13)
-        ax[0, 0].set_title("Input", fontsize=10)
-        ax[0, 1].set_title("Ground Truth", fontsize=10)
-        ax[0, 2].set_title("Prediction", fontsize=10)
-        ax[0, 3].set_title(f"{prob_diff}", fontsize=10)
+        fig.suptitle(f"Model Outputs - {title}", fontsize=20)
+        ax[0, 0].set_title("Input", fontsize=15)
+        ax[0, 1].set_title("Ground Truth", fontsize=15)
+        ax[0, 2].set_title("Prediction", fontsize=15)
+        ax[0, 3].set_title(f"{prob_diff}", fontsize=15)
 
         save_path = f"outputs/figures/{loc}/{subdir}/{os.environ['SLURM_JOB_ID']}/" + \
                     f"{self.current_epoch}-{batch_idx}"
