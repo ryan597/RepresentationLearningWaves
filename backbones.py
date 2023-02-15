@@ -157,22 +157,22 @@ class ResUNet(nn.Module):
         self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.Conv1 = ResidualLayer(img_ch, 64, 2)
-        self.Conv2 = ResidualLayer(64, 128, 3)
-        self.Conv3 = ResidualLayer(128, 256, 5)
-        self.Conv4 = ResidualLayer(256, 512, 3)
+        self.Conv2 = ResidualLayer(64, 128, 2)
+        self.Conv3 = ResidualLayer(128, 256, 2)
+        self.Conv4 = ResidualLayer(256, 512, 2)
         self.Conv5 = ResidualLayer(512, 1024, 2)
 
         self.Up5 = UpConv(1024, 512)
-        self.UpConv5 = ResidualLayer(1024, 512, 2)
+        self.UpConv5 = ResidualLayer(1024, 512, 1)
 
         self.Up4 = UpConv(512, 256)
-        self.UpConv4 = ResidualLayer(512, 256, 2)
+        self.UpConv4 = ResidualLayer(512, 256, 1)
 
         self.Up3 = UpConv(256, 128)
-        self.UpConv3 = ResidualLayer(256, 128, 2)
+        self.UpConv3 = ResidualLayer(256, 128, 1)
 
         self.Up2 = UpConv(128, 64)
-        self.UpConv2 = ResidualLayer(128, 64, 2)
+        self.UpConv2 = ResidualLayer(128, 64, 1)
 
         self.Conv = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
 
@@ -216,7 +216,7 @@ class ResUNet(nn.Module):
         out = self.Conv(d2)
 
         if self.masks:
-            out = torch.sigmoid(out)
+            out = torch.softmax(out, dim=1)
 
         return out
 
@@ -329,6 +329,6 @@ class AttentionUNet(nn.Module):
         out = self.Conv(d2)
 
         if self.masks:
-            out = torch.sigmoid(out)
+            out = torch.softmax(out, dim=1)
 
         return out
