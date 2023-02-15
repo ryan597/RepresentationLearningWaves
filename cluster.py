@@ -22,19 +22,22 @@ if __name__ == "__main__":
                         help="Path to checkpoint",
                         default=False)
     parser.add_argument("--testing", default=False)
+
     parser.opt_list("--lr", default=0.001, type=float, options=[1e-3, 1e-4], tunable=False)
+    parser.opt_list("--batch_size", default=5, type=int, options=[5, 10], tunable=False)
 
     # Tunable args
-    parser.opt_list("--step", default=1, type=int, options=[1, 3], tunable=True)
-    parser.opt_list("--seq_length", default=5, type=int, options=[5], tunable=False)
+    parser.opt_list("--step", default=1, type=int, options=[1, 3, 5], tunable=True)
+    parser.opt_list("--seq_length", default=5, type=int, options=[2, 3, 5], tunable=False)
     parser.opt_list("--freeze", default=0, type=int, options=[0], tunable=False)
     parser.opt_list("--size", default=512, type=int, options=[512], tunable=False)
+    parser.opt_list("--layers", default=50, type=int, options=[50], tunable=False)
 
     # Backbone Args
     parser.opt_list("--backbone", default="attention", type=str,
-                    options=["resnet", "baseline", "resunet", "attention"],
-                    tunable=False)
-    parser.opt_list("--layers", default=50, type=int, options=[50], tunable=False)
+                    options=["attention", "resunet"],
+                    # options=["attention", "resunet", "resnet", "baseline"],
+                    tunable=True)
 
     parser = pl.Trainer.add_argparse_args(parser)
 
@@ -51,7 +54,7 @@ if __name__ == "__main__":
     cluster.add_slurm_cmd(cmd="partition", value="GpuQ", comment="")
     cluster.add_slurm_cmd(cmd="ntasks-per-node", value=2, comment="")
 
-    cluster.add_slurm_cmd(cmd="exclude", value="n368", comment="")
+    cluster.add_slurm_cmd(cmd="exclude", value="n[363,364,368]", comment="")
 
     cluster.load_modules(["intel/2019u5", "cuda/11.3", "cudnn", "conda/2"])
     cluster.add_command("source activate rlwave")
@@ -60,4 +63,4 @@ if __name__ == "__main__":
     cluster.add_command("export NCCL_SOCKET_IFNAME=eth0")
     cluster.add_command("export NCCL_IB_DISABLE=1")
 
-    cluster.optimize_parallel_cluster_gpu(main, nb_trials=2, job_name="gridSearch")
+    cluster.optimize_parallel_cluster_gpu(main, nb_trials=3, job_name="gridSearch")
