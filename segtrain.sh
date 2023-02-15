@@ -1,12 +1,12 @@
 #!/bin/bash
 
 #SBATCH --job-name=RLW
-#SBATCH --time=8:00:00
+#SBATCH --time=2:00:00
 #SBATCH --nodes=1
 #SBATCH --account=ndear024a
 #SBATCH --partition=GpuQ
 #SBATCH --ntasks-per-node=2
-#SBATCH --exclude=n368
+#SBATCH --exclude=n[363,364,368]
 
 ACCELERATOR="gpu"
 DEVICES=2
@@ -15,7 +15,7 @@ NODES=1
 TRAIN_PATH="data"
 VALID_PATH="data/test"
 SIZE=512
-BATCH_SIZE=5
+BATCH_SIZE=4
 MASKS=True
 LR=0.001
 
@@ -32,19 +32,6 @@ echo backbone: $BACKBONE
 echo freeze: $FREEZE
 echo checkpoint: $CHECKPOINT
 
-#CHECKPOINT="outputs/lightning_logs/version_1013214/checkpoints/epoch=39-step=2360.ckpt" # step 1, seq_length 5, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013215/checkpoints/epoch=39-step=2360.ckpt"  # step 1, seq_length 3, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013216/checkpoints/epoch=39-step=2360.ckpt"  # step 1, seq_length 2, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013217/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 5, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013218/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 3, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013220/checkpoints/epoch=39-step=2360.ckpt"  # step 5, seq_length 5, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013221/checkpoints/epoch=39-step=2360.ckpt"  # step 5, seq_length 3, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013224/checkpoints/epoch=39-step=2360.ckpt"  # step 10, seq_length 3, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013225/checkpoints/epoch=39-step=2360.ckpt"  # step 10, seq_length 2, ATTN
-
-#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
-#CHECKPOINT="outputs/lightning_logs/version_1013219/checkpoints/epoch=39-step=2360.ckpt"  # step 3, seq_length 2, ATTN
 
 module purge
 module load intel/2019u5
@@ -54,7 +41,7 @@ module load conda/2
 source activate rlwave
 
 export PYTHONFAULTHANDLER=1
-export NCCL_DEBUG=WARN
+export NCCL_DEBUG=INFO
 export NCCL_SOCKET_IFNAME=eth0
 export NCCL_IB_DISABLE=1
 
