@@ -44,13 +44,6 @@ class LightningModel(pl.LightningModule):
         self.thresh = thresh
         self.save_hyperparameters(ignore=['base_model'])
 
-        if masks:
-            os.makedirs(f"outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-            os.makedirs(f"outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-        else:
-            os.makedirs(f"outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-            os.makedirs(f"outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-
     def forward(self, x):
         return self.model(x)
 
@@ -81,20 +74,6 @@ class LightningModel(pl.LightningModule):
             loss = self.criterion(outputs, labels, reduction='mean')
         else:
             loss = self.criterion(outputs, labels, inputs)
-            if self.current_epoch == 25:
-                # Allow skip connections
-                self.model.pretrain_bn = False
-                # Freeze the encoder
-                for param in self.model.Conv1.parameters():
-                    param.requires_grad = False
-                for param in self.model.Conv2.parameters():
-                    param.requires_grad = False
-                for param in self.model.Conv3.parameters():
-                    param.requires_grad = False
-                for param in self.model.Conv4.parameters():
-                    param.requires_grad = False
-                for param in self.model.Conv5.parameters():
-                    param.requires_grad = False
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
@@ -118,7 +97,7 @@ class LightningModel(pl.LightningModule):
         #    self.log('R', recall, prog_bar=True, logger=True, sync_dist=False)
         #    self.log('B', brier, prog_bar=True, logger=True, sync_dist=False)
 
-        if self.current_epoch % 5 == 0 and batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
+        if (self.current_epoch + 1) % 5 == 0 and batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -132,7 +111,7 @@ class LightningModel(pl.LightningModule):
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
         # Monitor metrics in training, disable for speedup
-        if self.masks and self.current_epoch % 5 == 0:  # Don't run this so often
+        if self.masks and (self.current_epoch + 1) % 5 == 0:  # Don't run this so often
             output = outputs.detach().cpu()
             label = labels.detach().cpu()
 
@@ -152,8 +131,24 @@ class LightningModel(pl.LightningModule):
             self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-        if self.current_epoch % 5 == 0 and (torch.rand(1) > 0.7):  # check some batches
+        if (self.current_epoch + 1) % 5 == 0 and (torch.rand(1) > 0.7):  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+
+    def on_validation_end(self):
+        if (self.current_epoch + 1) == 25 and not self.masks:
+            # Allow skip connections
+            self.model.pretrain_bn = False
+            # Freeze the encoder
+            # for param in self.model.Conv1.parameters():
+            #     param.requires_grad = False
+            # for param in self.model.Conv2.parameters():
+            #     param.requires_grad = False
+            # for param in self.model.Conv3.parameters():
+            #     param.requires_grad = False
+            # for param in self.model.Conv4.parameters():
+            #     param.requires_grad = False
+            # for param in self.model.Conv5.parameters():
+            #     param.requires_grad = False
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows

@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import pytorch_lightning as pl
@@ -9,6 +10,18 @@ from lightningmodel import LightningModel
 
 
 def main(hp, *args):
+    if hp.masks:
+        os.makedirs(f"outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+    else:
+        os.makedirs(f"outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
+                                                       save_weights_only=True,
+                                                       save_top_k=2,
+                                                       filename="epoch(epoch:02d)_loss(val_loss:.4f)")
+
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(
         hp,
@@ -17,24 +30,17 @@ def main(hp, *args):
         enable_checkpointing=True,
         check_val_every_n_epoch=5,
         logger=True,
-        log_every_n_steps=20,
+        log_every_n_steps=5,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
-        accumulate_grad_batches=30,
+        accumulate_grad_batches=10,
         default_root_dir="outputs/",
         precision=16,
-        benchmark=True)
+        benchmark=True,
+        callbacks=[checkpoint_callback])
 
     image_shape = (hp.size, 2 * hp.size)
-    """
-    masks = True if hparams.masks == "True" else False
-    seq_length = int(hparams.seq_length)
-    lr = float(hparams.lr)
-    batch_size = int(hparams.batch_size)
-    layers = int(hparams.layers)
-    freeze = int(hparams.freeze)
-    step = int(hparams.step)
-    """
+
     match hp.backbone:
         # BASELINE MODEL : 1 input image, no pretraining
         case "baseline":
@@ -62,14 +68,14 @@ def main(hp, *args):
         case "resunet":
             channels = 1
             model = ResUNet(hp.seq_length - 1,
-                            1,
+                            1 + hp.masks,
                             masks=hp.masks,
                             pretrain_bn=not hp.masks)
 
         case "attention":
             channels = 1
             model = AttentionUNet(hp.seq_length - 1,
-                                  1,
+                                  1 + hp.masks,
                                   masks=hp.masks,
                                   pretrain_bn=not hp.masks)
 
@@ -149,7 +155,5 @@ if __name__ == "__main__":
     parser.add_argument("--testing", default=False, action="store_true")
 
     hparams = parser.parse_args()
-
-    # print(hparams, flush=True)
 
     main(hparams)
