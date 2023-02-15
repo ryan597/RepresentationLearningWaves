@@ -138,8 +138,8 @@ class InputSequence(Dataset):
 
         hflip = random.random()
         vflip = random.random()
-        i, j, h, w = T.RandomResizedCrop(size=self.image_shape, scale=(0.7, 1.0), ratio=(1, 1)).get_params(
-            TF.to_tensor(args[0]), self.image_shape)
+        i, j, h, w = T.RandomResizedCrop(size=self.image_shape).get_params(
+            TF.to_tensor(args[0]), scale=[0.7, 1.0], ratio=[1, 1])
         d = T.RandomRotation.get_params(degrees=[-30, 30])
         for image in args:
             # Transform to tensor
