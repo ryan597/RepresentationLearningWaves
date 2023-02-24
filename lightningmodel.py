@@ -13,14 +13,14 @@ import data_utils
 
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
-    mask = torch.abs(inputs[0] - inputs[-1]) > 0.085
+    mask = torch.abs(target - inputs[-1]) > 0.085
     loss = torch.abs(output - target)
     loss = (mask * 10 + 1) * loss
 
     if reduction == "mean":
-        loss = loss.mean()
-    if reduction == "sum":
-        loss = loss.sum()
+        return loss.mean()
+    elif reduction == "sum":
+        return loss.sum()
     return loss
 
 
