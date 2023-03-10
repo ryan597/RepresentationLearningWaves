@@ -59,6 +59,31 @@ pip freeze >> requirements.txt
 
 ### 2.2. Folder Structure
 
+<details>
+  <summary>data</summary>
+
+  - v1
+  - masks
+  - test
+    - v2
+    - masks
+
+</details>
+
+<details>
+  <summary>outputs</summary>
+
+  - figures
+    - training
+      - frames
+      - masks
+    - validation
+      - frames
+      - masks
+  - lightning_logs
+
+</details>
+
 ---
 
 ## 3. Models
@@ -66,6 +91,57 @@ pip freeze >> requirements.txt
 ---
 
 ## 4. Training
+
+To train models using the python script `train.py` you can use or modify the SLURM submission script `train.sh`, or extract the command inside the file and run it directly from the terminal.
+
+The following options are given to the script as arguments
+
+- train_path : Path to the folder containing training images
+- valid_path : Path to the folder containing validation images
+- test_path : Path to the folder containing testing images
+- batch_size : Mini-batch size
+- masks/no-masks : To predict segmentation masks or frame predicitions
+- step : Number of steps between frames
+- seq_length : How long the sequence should be, 5 means 4 input images and 1 label image
+- freeze : How many network layers should be frozen during training
+- size : Image size (512, means images will be (512, 1024))
+- backbone : Backbone to use - attention, resunet, resnet, baseline
+- lr : Learning rate to start training with
+- layers : How many layers to use in ResNet ie. ResNet50, ResNet32 or ResNet18
+- accelerator : Use cpu, gpu or tpu accelerated training
+- devices : Number of devices per node
+- num_nodes : Number of nodes to run on
+- checkpoint : Path to the pytorch checkpoint
+- testing/no-testing : To run as testing or training
+
+Other options are configured within the `train.py` script within the `pl.Trainer.from_argparse_args function` (such as max_epochs, log_every_n_steps etc.) but can be overridden by passing as args to the script.
+
+```bash
+# Number of GPUs and Nodes
+ACCELERATOR="gpu"
+DEVICES=2
+NODES=1
+
+# Data parameters
+TRAIN_PATH="data"
+VALID_PATH="data/test"
+SIZE=512
+BATCH_SIZE=4
+
+# Model Parameters
+BACKBONE="attention"
+LR=0.001
+STEP=3
+SEQ_LENGTH=5
+FREEZE=0
+LAYERS=50
+CHECKPOINT=""
+
+# Distributed Launch
+srun python3 train.py --train_path $TRAIN_PATH --valid_path $VALID_PATH --test_path $VALID_PATH --batch_size $BATCH_SIZE \
+    --no-masks --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $SIZE --backbone $BACKBONE \
+    --lr $LR --layers $LAYERS --accelerator $ACCELERATOR --devices $DEVICES --num_nodes $NODES #--checkpoint $CHECKPOINT
+```
 
 ---
 
