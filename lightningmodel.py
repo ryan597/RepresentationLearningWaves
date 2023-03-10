@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
 from torchmetrics.functional import dice, jaccard_index
-from sklearn.metrics import precision_score, recall_score, brier_score_loss
+from sklearn.metrics import precision_score, recall_score, brier_score_loss, roc_auc_score, RocCurveDisplay
 
 import data_utils
 
@@ -199,17 +199,19 @@ class LightningModel(pl.LightningModule):
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
 
-        self.test_outputs.append(output.flatten())
-        self.test_labels.append(label.flatten())
+        self.test_outputs.append(output[0].flatten()) # select the first channel
+        self.test_labels.append(label[0].flatten())
 
-        self.log('test_loss', test_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
 
         return {'loss' : test_loss, 'pred' : outputs, 'label' : labels}
 
-    def test_epoch_end(self, test_step_outputs):
-
+    def test_epoch_end(self):
+        auc = roc_auc_score(self.test_labels, self.test_outputs, average=None)
         self.log('auc', auc, on_epoch=True, prog_bar=True, logger=True)
+        RocCurveDisplay.from_predictions(self.test_labels, self.test_outputs)
+        plt.savefig(f"outputs/figures/{os.environ['SLURM_JOB_ID']}.png", dpi=300)
 
     def train_dataloader(self):
         return data_utils.load_data(
