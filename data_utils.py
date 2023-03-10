@@ -165,7 +165,7 @@ def load_data(path, image_shape, batch_size=10, shuffle=True,
               masks=False, seq_length=3, step=1, aug=False, channels=1):
     dataset = InputSequence(path, image_shape, masks, seq_length, step, aug, channels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle,
-                            num_workers=8, persistent_workers=True,
+                            num_workers=18, persistent_workers=True,
                             pin_memory=True)
     return dataloader
 
