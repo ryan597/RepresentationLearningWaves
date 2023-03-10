@@ -192,5 +192,4 @@ dependencies:
     - unicodedata2==14.0.0
     - werkzeug==2.1.2
     - yarl==1.7.2
-prefix: /ichec/home/users/rsmith/.conda/envs/rlwave
 
