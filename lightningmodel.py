@@ -199,17 +199,17 @@ class LightningModel(pl.LightningModule):
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
 
-        # Threshold the FG prob
-        output[:, 0] = output[:, 0] > self.thresh
-        output[:, 1] = 1 - output[:, 0]
-        iou = jaccard_index(output.int(), label.int(), average="macro", num_classes=2)
-        dc = dice(output.int(), label.int(), average="macro", num_classes=2)
+        self.test_outputs.append(output.flatten())
+        self.test_labels.append(label.flatten())
 
         self.log('test_loss', test_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-        self.log('test_IoU', iou, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-        self.log('test_Dice', dc, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
-
         self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
+
+        return {'loss' : test_loss, 'pred' : outputs, 'label' : labels}
+
+    def test_epoch_end(self, test_step_outputs):
+
+        self.log('auc', auc, on_epoch=True, prog_bar=True, logger=True)
 
     def train_dataloader(self):
         return data_utils.load_data(
