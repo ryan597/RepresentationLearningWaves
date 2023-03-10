@@ -33,7 +33,7 @@ def main(hp, *args):
         log_every_n_steps=5,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
-        accumulate_grad_batches=10,
+        accumulate_grad_batches=1,
         default_root_dir="outputs/",
         precision=16,
         benchmark=True,
@@ -128,7 +128,7 @@ def main(hp, *args):
             step=hp.step,
             channels=channels)
 
-    if hp.testing == "True":  # argparse makes everything strings
+    if hp.testing:
         trainer.test()
     else:
         trainer.fit(model)
@@ -143,7 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("--valid_path", default="data/test", type=str)
     parser.add_argument("--test_path", default=None, type=str)
     parser.add_argument("--batch_size", default=5, type=int)
-    parser.add_argument("--masks", default=False, type=bool)
+    parser.add_argument('--masks', default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--checkpoint", default="", type=str)
     parser.add_argument("--backbone", default="resunet", type=str)
     parser.add_argument("--step", default=1, type=int)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("--size", default=512, type=int)
     parser.add_argument("--lr", default=0.001, type=float)
     parser.add_argument("--layers", default=50, type=int)
-    parser.add_argument("--testing", default=False, action="store_true")
+    parser.add_argument('--testing', default=False, action=argparse.BooleanOptionalAction)
 
     hparams = parser.parse_args()
 
