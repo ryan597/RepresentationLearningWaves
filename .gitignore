@@ -5,6 +5,7 @@ weights/**
 
 *.png
 *.MOV
+*.ipynb
 
 # ignore ichec stuff
 slurm*
