@@ -1,20 +1,20 @@
 #!/bin/bash
 
 #SBATCH --job-name=RLW
-#SBATCH --time=2-00:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --nodes=1
+#SBATCH --account=ndear024a
 
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:2
+#SBATCH --partition=GpuQ
 #SBATCH --ntasks-per-node=2
-#SBATCH  --cpus-per-task=18
+#SBATCH  --cpus-per-task=20
 
 ACCELERATOR="gpu"
 DEVICES=2
 NODES=1
 
-TRAIN_PATH="../scratch"
-VALID_PATH="../scratch/test"
+TRAIN_PATH="data"
+VALID_PATH="data/test"
 SIZE=512
 BATCH_SIZE=4
 MASKS=False
@@ -33,11 +33,8 @@ echo backbone: $BACKBONE
 echo freeze: $FREEZE
 echo checkpoint: $CHECKPOINT
 
-
-#module purge
-#module load anaconda/3.5.2
-source ~/.bashrc
-conda activate rlwave
+module load conda
+source activate rlwave
 
 srun python3 train.py --train_path $TRAIN_PATH --valid_path $VALID_PATH --test_path $VALID_PATH --batch_size $BATCH_SIZE \
     --no-masks --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $SIZE --backbone $BACKBONE \
