@@ -20,7 +20,7 @@ def main(hp, *args):
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
                                                        save_weights_only=True,
                                                        save_top_k=2,
-                                                       filename="epoch(epoch:02d)_loss(val_loss:.4f)")
+                                                       filename="{epoch:02d}_{val_loss:.4f}")
 
     pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer.from_argparse_args(

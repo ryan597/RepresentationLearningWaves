@@ -131,8 +131,8 @@ class LightningModel(pl.LightningModule):
             self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-        if (self.current_epoch + 1) % 5 == 0 and (torch.rand(1) > 0.7):  # check some batches
-            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+            if torch.rand(1) > 0.7:  # check some batches
+                self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def on_validation_end(self):
         if (self.current_epoch + 1) == 25 and not self.masks:
