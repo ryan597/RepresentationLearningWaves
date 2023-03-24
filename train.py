@@ -128,10 +128,12 @@ def main(hp, *args):
             step=hp.step,
             channels=channels)
 
+    compiled_model = torch.compile(model)
+
     if hp.testing:
-        trainer.test()
+        trainer.test(compiled_model)
     else:
-        trainer.fit(model)
+        trainer.fit(compiled_model)
 
     exit(0)
 
