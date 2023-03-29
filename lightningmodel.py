@@ -199,13 +199,13 @@ class LightningModel(pl.LightningModule):
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
 
-        self.test_outputs.append(output[0].flatten()) # select the first channel
+        self.test_outputs.append(output[0].flatten())  # select the first channel
         self.test_labels.append(label[0].flatten())
 
         self.log('test_loss', test_loss, on_epoch=True, prog_bar=True, logger=True)
         self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
 
-        return {'loss' : test_loss, 'pred' : outputs, 'label' : labels}
+        return {'loss': test_loss, 'pred': outputs, 'label': labels}
 
     def test_epoch_end(self):
         auc = roc_auc_score(self.test_labels, self.test_outputs, average=None)
