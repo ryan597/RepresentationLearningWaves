@@ -18,34 +18,34 @@ sbatch segtrain.sh attention 5 2 0 ""
 
 
 ### Pretrained Attention
-sbatch segtrain.sh attention 1 5 2 "outputs/lightning_logs/version_1064218/checkpoints/epoch=29-step=600.ckpt"
-sbatch segtrain.sh attention 1 5 5 "outputs/lightning_logs/version_1064218/checkpoints/epoch=29-step=500.ckpt"
+sbatch segtrain.sh attention 1 5 2 "outputs/lightning_logs/version_1527738/checkpoints/epoch--epoch=49_loss--val_loss=0.0065.ckpt"
+sbatch segtrain.sh attention 1 5 5 "outputs/lightning_logs/version_1527738/checkpoints/epoch--epoch=49_loss--val_loss=0.0065.ckpt"
 
-sbatch segtrain.sh attention 1 3 2 ""
-sbatch segtrain.sh attention 1 3 5 ""
+sbatch segtrain.sh attention 1 3 2 "outputs/lightning_logs/version_1527739/checkpoints/epoch--epoch=69_loss--val_loss=0.0064.ckpt"
+sbatch segtrain.sh attention 1 3 5 "outputs/lightning_logs/version_1527739/checkpoints/epoch--epoch=69_loss--val_loss=0.0064.ckpt"
 
-sbatch segtrain.sh attention 1 2 2 ""
-sbatch segtrain.sh attention 1 2 5 ""
-
-
-sbatch segtrain.sh attention 3 5 2 ""
-sbatch segtrain.sh attention 3 5 5 ""
-
-sbatch segtrain.sh attention 3 3 2 ""
-sbatch segtrain.sh attention 3 3 5 ""
-
-sbatch segtrain.sh attention 3 2 2 ""
-sbatch segtrain.sh attention 3 2 5 ""
+sbatch segtrain.sh attention 1 2 2 "outputs/lightning_logs/version_1527740/checkpoints/epoch--epoch=79_loss--val_loss=0.0086.ckpt"
+sbatch segtrain.sh attention 1 2 5 "outputs/lightning_logs/version_1527740/checkpoints/epoch--epoch=79_loss--val_loss=0.0086.ckpt"
 
 
-sbatch segtrain.sh attention 5 5 2 ""
-sbatch segtrain.sh attention 5 5 5 ""
+sbatch segtrain.sh attention 3 5 2 "outputs/lightning_logs/version_1527741/checkpoints/epoch--epoch=64_loss--val_loss=0.0138.ckpt"
+sbatch segtrain.sh attention 3 5 5 "outputs/lightning_logs/version_1527741/checkpoints/epoch--epoch=64_loss--val_loss=0.0138.ckpt"
 
-sbatch segtrain.sh attention 5 3 2 ""
-sbatch segtrain.sh attention 5 3 5 ""
+sbatch segtrain.sh attention 3 3 2 "outputs/lightning_logs/version_1527742/checkpoints/epoch--epoch=69_loss--val_loss=0.0159.ckpt"
+sbatch segtrain.sh attention 3 3 5 "outputs/lightning_logs/version_1527742/checkpoints/epoch--epoch=69_loss--val_loss=0.0159.ckpt"
 
-sbatch segtrain.sh attention 5 2 2 ""
-sbatch segtrain.sh attention 5 2 5 ""
+sbatch segtrain.sh attention 3 2 2 "outputs/lightning_logs/version_1527743/checkpoints/epoch--epoch=64_loss--val_loss=0.0265.ckpt"
+sbatch segtrain.sh attention 3 2 5 "outputs/lightning_logs/version_1527743/checkpoints/epoch--epoch=64_loss--val_loss=0.0265.ckpt"
+
+
+sbatch segtrain.sh attention 5 5 2 "outputs/lightning_logs/version_1527744/checkpoints/epoch--epoch=64_loss--val_loss=0.0215.ckpt"
+sbatch segtrain.sh attention 5 5 5 "outputs/lightning_logs/version_1527744/checkpoints/epoch--epoch=64_loss--val_loss=0.0215.ckpt"
+
+sbatch segtrain.sh attention 5 3 2 "outputs/lightning_logs/version_1527745/checkpoints/epoch--epoch=69_loss--val_loss=0.0233.ckpt"
+sbatch segtrain.sh attention 5 3 5 "outputs/lightning_logs/version_1527745/checkpoints/epoch--epoch=69_loss--val_loss=0.0233.ckpt"
+
+sbatch segtrain.sh attention 5 2 2 "outputs/lightning_logs/version_1527746/checkpoints/epoch--epoch=69_loss--val_loss=0.0420.ckpt"
+sbatch segtrain.sh attention 5 2 5 "outputs/lightning_logs/version_1527746/checkpoints/epoch--epoch=69_loss--val_loss=0.0420.ckpt"
 
 
 ## No Pretraining ResUNet
