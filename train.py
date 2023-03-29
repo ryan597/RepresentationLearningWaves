@@ -22,9 +22,11 @@ def main(hp, *args):
                                                        save_top_k=2,
                                                        filename="{epoch:02d}_{val_loss:.4f}")
 
-    pl.utilities.seed.seed_everything(2022)
-    trainer = pl.Trainer.from_argparse_args(
-        hp,
+    #pl.utilities.seed.seed_everything(2022)
+    trainer = pl.Trainer(
+        devices=hp.devices,
+        accelerator=hp.accelerator,
+        num_nodes=hp.num_nodes,
         max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
@@ -140,7 +142,7 @@ def main(hp, *args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parser)
+    #parser = pl.Trainer.add_argparse_args(parser)
     parser.add_argument("--train_path", default="data", type=str)
     parser.add_argument("--valid_path", default="data/test", type=str)
     parser.add_argument("--test_path", default=None, type=str)
@@ -155,6 +157,10 @@ if __name__ == "__main__":
     parser.add_argument("--lr", default=0.001, type=float)
     parser.add_argument("--layers", default=50, type=int)
     parser.add_argument('--testing', default=False, action=argparse.BooleanOptionalAction)
+
+    parser.add_argument("--devices", default=2, type=int)
+    parser.add_argument("--accelerator", default="gpu", type=str)
+    parser.add_argument("--num_nodes", default=1, type=int)
 
     hparams = parser.parse_args()
 
