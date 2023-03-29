@@ -142,17 +142,14 @@ def main(hp, *args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-<<<<<<< HEAD
     #parser = pl.Trainer.add_argparse_args(parser)
-=======
->>>>>>> 189c705d41c4ad995155ff5af0d087986c4028ee
     parser.add_argument("--train_path", default="data", type=str)
     parser.add_argument("--valid_path", default="data/test", type=str)
     parser.add_argument("--test_path", default=None, type=str)
     parser.add_argument("--batch_size", default=5, type=int)
     parser.add_argument('--masks', default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--checkpoint", default="", type=str)
-    parser.add_argument("--backbone", default="attention", type=str)
+    parser.add_argument("--backbone", default="resunet", type=str)
     parser.add_argument("--step", default=1, type=int)
     parser.add_argument("--seq_length", default=2, type=int)
     parser.add_argument("--freeze", default=0, type=int)
@@ -161,13 +158,8 @@ if __name__ == "__main__":
     parser.add_argument("--layers", default=50, type=int)
     parser.add_argument('--testing', default=False, action=argparse.BooleanOptionalAction)
 
-<<<<<<< HEAD
     parser.add_argument("--devices", default=2, type=int)
     parser.add_argument("--accelerator", default="gpu", type=str)
-=======
-    parser.add_argument("--devices", default=1, type=int)
-    parser.add_argument("--accelerator", default='gpu', type=str)
->>>>>>> 189c705d41c4ad995155ff5af0d087986c4028ee
     parser.add_argument("--num_nodes", default=1, type=int)
 
     hparams = parser.parse_args()
