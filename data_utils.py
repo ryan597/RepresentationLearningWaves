@@ -130,7 +130,7 @@ class InputSequence(Dataset):
         images = []
         if not self.aug:
             totensor = T.ToTensor()
-            resize = T.Resize(size=self.image_shape)
+            resize = T.Resize(size=self.image_shape, antialias=True)
             for image in args:
                 temp = totensor(image)
                 images.append(resize(temp)[0])
@@ -138,7 +138,7 @@ class InputSequence(Dataset):
 
         hflip = random.random()
         vflip = random.random()
-        i, j, h, w = T.RandomResizedCrop(size=self.image_shape).get_params(
+        i, j, h, w = T.RandomResizedCrop(size=self.image_shape, antialias=True).get_params(
             TF.to_tensor(args[0]), scale=[0.7, 1.0], ratio=[1, 1])
         d = T.RandomRotation.get_params(degrees=[-30, 30])
         for image in args:
@@ -155,7 +155,7 @@ class InputSequence(Dataset):
             # Random Rotation
             image = TF.rotate(image, angle=d)
             # Resize
-            resize = T.Resize(size=self.image_shape)
+            resize = T.Resize(size=self.image_shape, antialias=True)
             image = resize(image)
             images.append(image[0])  # tensors have been formated to [1, x, y]
         return images
