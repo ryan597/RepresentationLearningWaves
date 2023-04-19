@@ -8,7 +8,6 @@ from torchvision.models.segmentation import fcn_resnet50
 from backbones import ResNet_backbone, ResUNet, AttentionUNet
 from lightningmodel import LightningModel
 
-
 def main(hp, *args):
     if hp.masks:
         os.makedirs(f"../scratch/outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
@@ -17,12 +16,15 @@ def main(hp, *args):
         os.makedirs(f"../scratch/outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
         os.makedirs(f"../scratch/outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
 
+    early_stop_callback = pl.callbacks.early_stopping.EarlyStopping(monitor="train_loss",
+                                                                    mode="min",
+                                                                    patience=5,
+                                                                    strict=False)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
                                                        save_weights_only=True,
                                                        save_top_k=2,
                                                        filename="{epoch:02d}_{val_loss:.4f}")
 
-    #pl.utilities.seed.seed_everything(2022)
     trainer = pl.Trainer(
         devices=hp.devices,
         accelerator=hp.accelerator,
@@ -38,7 +40,8 @@ def main(hp, *args):
         default_root_dir="../scratch/outputs/",
         precision="16-mixed",
         benchmark=True,
-        callbacks=[checkpoint_callback])
+        callbacks=[checkpoint_callback,
+                   early_stop_callback])
 
     image_shape = (hp.size, 2 * hp.size)
 
