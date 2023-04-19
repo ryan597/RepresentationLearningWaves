@@ -69,14 +69,14 @@ class ResNet_backbone(nn.Module):
         super().__init__()
         self.masks = masks
         if layers == 50:
-            channels = [[4096, 512], [512, 64], [64, 1]]
+            channels = [[4096, 512], [512, 64], [64, 1 + self.masks]]
             backbone = TVmodels.resnet.resnet50(
                 pretrained=False,
                 replace_stride_with_dilation=[False, True, True])
             backbone.load_state_dict(
                 torch.load("weights/resnet50-0676ba61.pth"))
         elif layers == 18:
-            channels = [[1024, 256], [256, 128], [128, 64], [64, 1]]
+            channels = [[1024, 256], [256, 128], [128, 64], [64, 1 + self.masks]]
             backbone = TVmodels.resnet.resnet18(
                 pretrained=False)
             backbone.load_state_dict(
@@ -94,12 +94,6 @@ class ResNet_backbone(nn.Module):
         self.backbone2 = copy.deepcopy(backbone)
         self.decode = Decoder(channels)
 
-        # Freeze the decoder if masks
-        # if self.masks:
-        #    for child in list(self.decode.decode)[:-1]:
-        #       for param in child.parameters():
-        #            param.requires_grad = False
-
     def forward(self, x):
         img1 = x[:, 0:3]
         img2 = x[:, 3:6]
@@ -107,7 +101,7 @@ class ResNet_backbone(nn.Module):
         x2 = self.backbone2(img2)
         x = self.decode(torch.cat((x1, x2), dim=1))
         if self.masks:
-            x = torch.sigmoid(x)
+            x = torch.softmax(x, dim=1)
         return x
 
 
