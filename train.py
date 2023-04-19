@@ -11,11 +11,11 @@ from lightningmodel import LightningModel
 
 def main(hp, *args):
     if hp.masks:
-        os.makedirs(f"outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-        os.makedirs(f"outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"../scratch/outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"../scratch/outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
     else:
-        os.makedirs(f"outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
-        os.makedirs(f"outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"../scratch/outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
+        os.makedirs(f"../scratch/outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
 
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
                                                        save_weights_only=True,
@@ -27,17 +27,16 @@ def main(hp, *args):
         devices=hp.devices,
         accelerator=hp.accelerator,
         num_nodes=hp.num_nodes,
-        max_epochs=100,
+        max_epochs=80,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
         check_val_every_n_epoch=5,
         logger=True,
-        log_every_n_steps=100,
+        log_every_n_steps=5,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
-        accumulate_grad_batches=10,
-        default_root_dir="outputs/",
-        precision=16,
+        default_root_dir="../scratch/outputs/",
+        precision="16-mixed",
         benchmark=True,
         callbacks=[checkpoint_callback])
 
@@ -85,21 +84,22 @@ def main(hp, *args):
             print("model not specified. Exiting...")
             exit(1)
 
-    if hp.freeze > 0:
-        for param in model.Conv1.parameters():
-            param.requires_grad = False
-    if hp.freeze > 1:
-        for param in model.Conv2.parameters():
-            param.requires_grad = False
-    if hp.freeze > 2:
-        for param in model.Conv3.parameters():
-            param.requires_grad = False
-    if hp.freeze > 3:
-        for param in model.Conv4.parameters():
-            param.requires_grad = False
-    if hp.freeze > 4:
-        for param in model.Conv5.parameters():
-            param.requires_grad = False
+    if hp.backbone in ["resunet", "attention"]:
+        if hp.freeze > 0:
+            for param in model.Conv1.parameters():
+                param.requires_grad = False
+        if hp.freeze > 1:
+            for param in model.Conv2.parameters():
+                param.requires_grad = False
+        if hp.freeze > 2:
+            for param in model.Conv3.parameters():
+                param.requires_grad = False
+        if hp.freeze > 3:
+            for param in model.Conv4.parameters():
+                param.requires_grad = False
+        if hp.freeze > 4:
+            for param in model.Conv5.parameters():
+                param.requires_grad = False
 
     if hp.checkpoint:
         model = LightningModel.load_from_checkpoint(
@@ -130,12 +130,10 @@ def main(hp, *args):
             step=hp.step,
             channels=channels)
 
-    compiled_model = torch.compile(model)
-
     if hp.testing:
-        trainer.test(compiled_model)
+        trainer.test(model)
     else:
-        trainer.fit(compiled_model)
+        trainer.fit(model)
 
     exit(0)
 
