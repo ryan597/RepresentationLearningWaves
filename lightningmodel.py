@@ -71,7 +71,7 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         if self.masks:
-            loss = self.criterion(outputs, labels, reduction='mean')
+            loss = self.criterion(outputs, labels, reduction='mean', alpha=0.85)
         else:
             loss = self.criterion(outputs, labels, inputs)
 
@@ -105,13 +105,13 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         if self.masks:
-            val_loss = self.criterion(outputs, labels, reduction='mean')
+            val_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.85)
         else:
             val_loss = self.criterion(outputs, labels, inputs)
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
         # Monitor metrics in training, disable for speedup
-        if self.masks and (self.current_epoch + 1) % 5 == 0:  # Don't run this so often
+        if self.masks:
             output = outputs.detach().cpu()
             label = labels.detach().cpu()
 
@@ -131,8 +131,8 @@ class LightningModel(pl.LightningModule):
             self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-            if torch.rand(1) > 0.7:  # check some batches
-                self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+        if torch.rand(1) > 0.7:  # check some batches
+            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def on_validation_end(self):
         if (self.current_epoch + 1) == 25 and not self.masks:
@@ -187,7 +187,7 @@ class LightningModel(pl.LightningModule):
         ax[0, 2].set_title("Prediction", fontsize=15)
         ax[0, 3].set_title(f"{prob_diff}", fontsize=15)
 
-        save_path = f"outputs/figures/{loc}/{subdir}/{os.environ['SLURM_JOB_ID']}/" + \
+        save_path = f"../scratch/outputs/figures/{loc}/{subdir}/{os.environ['SLURM_JOB_ID']}/" + \
                     f"{self.current_epoch}-{batch_idx}"
         plt.savefig(save_path + ".png", dpi=300)  # increase dpi for better quality figures (reduced to save space)
         plt.close()

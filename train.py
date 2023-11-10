@@ -8,6 +8,7 @@ from torchvision.models.segmentation import fcn_resnet50
 from backbones import ResNet_backbone, ResUNet, AttentionUNet
 from lightningmodel import LightningModel
 
+
 def main(hp, *args):
     if hp.masks:
         os.makedirs(f"../scratch/outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
@@ -18,7 +19,7 @@ def main(hp, *args):
 
     early_stop_callback = pl.callbacks.early_stopping.EarlyStopping(monitor="train_loss",
                                                                     mode="min",
-                                                                    patience=5,
+                                                                    patience=10,
                                                                     strict=False)
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
                                                        save_weights_only=True,
@@ -40,6 +41,7 @@ def main(hp, *args):
         default_root_dir="../scratch/outputs/",
         precision="16-mixed",
         benchmark=True,
+        profiler=hp.profiler,
         callbacks=[checkpoint_callback,
                    early_stop_callback])
 
@@ -162,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--devices", default=2, type=int)
     parser.add_argument("--accelerator", default="gpu", type=str)
     parser.add_argument("--num_nodes", default=1, type=int)
+    parser.add_argument("--profiler", default=None, type=str)
 
     hparams = parser.parse_args()
 
