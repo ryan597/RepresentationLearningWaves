@@ -114,10 +114,10 @@ class ConvBlock(nn.Module):
         # "same" convolutions
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
+            nn.GroupNorm(out_channels, out_channels),
             nn.LeakyReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
+            nn.GroupNorm(out_channels, out_channels),
             nn.LeakyReLU(inplace=True)
         )
 
@@ -133,7 +133,7 @@ class UpConv(nn.Module):
         self.up = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
+            nn.GroupNorm(out_channels, out_channels),
             nn.LeakyReLU(inplace=True)
         )
 
@@ -221,17 +221,17 @@ class AttentionBlock(nn.Module):
 
         self.W_gate = nn.Sequential(
             nn.Conv2d(F_g, n_coefficients, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(n_coefficients)
+            nn.GroupNorm(1, n_coefficients)
         )
 
         self.W_x = nn.Sequential(
             nn.Conv2d(F_l, n_coefficients, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(n_coefficients)
+            nn.GroupNorm(1, n_coefficients)
         )
 
         self.psi = nn.Sequential(
             nn.Conv2d(n_coefficients, 1, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(1),
+            nn.GroupNorm(1, 1),
             nn.Sigmoid()
         )
 
