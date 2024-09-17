@@ -14,7 +14,7 @@ import data_utils
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(target - inputs[-1]) > 0.085
-    loss = torch.abs(output - target)
+    loss = F.l1_loss(output, target, reduction='none')
     loss = (mask * 10 + 1) * loss
 
     if reduction == "mean":
@@ -75,7 +75,7 @@ class LightningModel(pl.LightningModule):
         else:
             loss = self.criterion(outputs, labels, reduction="mean")
 
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=False, logger=True, sync_dist=True)
 
         # Debugging
         # if self.masks and self.current_epoch % 5 == 0:
@@ -184,31 +184,35 @@ class LightningModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        test_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.032, gamma=2)
+        if self.masks:
+            test_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.032, gamma=2)
+        else:
+            test_loss = self.criterion(outputs, labels, reduction="mean")
 
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
 
-        brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
-        # Threshold the FG prob
-        output[:, 0] = output[:, 0] > self.thresh
-        output[:, 1] = 1 - output[:, 0]
-        iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
-        dc = dice(output.int(), label.int(), average=None, num_classes=2)
-        precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
-        recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+        if self.masks:
+            brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
+            # Threshold the FG prob
+            output[:, 0] = output[:, 0] > self.thresh
+            output[:, 1] = 1 - output[:, 0]
+            iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
+            dc = dice(output.int(), label.int(), average=None, num_classes=2)
+            precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+            recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
 
-        self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.log('Brier', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Brier', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
         self.log('test_loss', test_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-        self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
-
-        return {'loss': test_loss, 'pred': outputs, 'label': labels}
+        return {'loss': test_loss}
 
 
     def train_dataloader(self):
