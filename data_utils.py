@@ -139,7 +139,11 @@ class InputSequence(Dataset):
         hflip = random.random()
         vflip = random.random()
         i, j, h, w = T.RandomResizedCrop(size=self.image_shape, antialias=True).get_params(
-            TF.to_tensor(args[0]), scale=[0.7, 1.0], ratio=[1, 1])
+            TF.to_tensor(args[0]), scale=[0.5, 1.0], ratio=[0.75, 1.25])
+
+        #_, rand_b, rand_c, _, _ = T.ColorJitter.get_params([0.99, 1.01], [0.98, 1.02], None, None)
+        #rand_jitter = T.ColorJitter(rand_b, rand_c)
+
         d = T.RandomRotation.get_params(degrees=[-30, 30])
         for image in args:
             # Transform to tensor
@@ -154,6 +158,8 @@ class InputSequence(Dataset):
                 image = TF.vflip(image)
             # Random Rotation
             image = TF.rotate(image, angle=d)
+            # Random Jitter
+            #image = rand_jitter.forward(image)
             # Resize
             resize = T.Resize(size=self.image_shape, antialias=True)
             image = resize(image)
