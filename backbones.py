@@ -148,7 +148,7 @@ class ResUNet(nn.Module):
         self.masks = masks
         self.pretrain_bn = pretrain_bn
 
-        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
 
         self.Conv1 = ResidualLayer(img_ch, 64, 2)
         self.Conv2 = ResidualLayer(64, 128, 2)
@@ -252,7 +252,7 @@ class AttentionUNet(nn.Module):
         self.masks = masks
         self.pretrain_bn = pretrain_bn
 
-        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
 
         self.Conv1 = ConvBlock(img_ch, 64)
         self.Conv2 = ConvBlock(64, 128)
