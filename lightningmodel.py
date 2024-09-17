@@ -2,12 +2,12 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-# import torch.nn.functional as F
+import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
 from torchmetrics.functional import dice, jaccard_index
-from sklearn.metrics import precision_score, recall_score, brier_score_loss, roc_auc_score, RocCurveDisplay
+from sklearn.metrics import precision_score, recall_score, brier_score_loss
 
 import data_utils
 
@@ -27,7 +27,7 @@ def maskedL1loss(output, target, inputs, reduction='mean'):
 class LightningModel(pl.LightningModule):
     def __init__(self, base_model, lr, train_path, valid_path,
                  image_shape=(512, 1024), batch_size=10, shuffle=True,
-                 masks=False, seq_length=2, channels=1, step=1, thresh=0.2):
+                 masks=False, seq_length=2, channels=1, step=1, thresh=0.5):
         super().__init__()
         self.model = base_model
         self.train_path = train_path
@@ -40,7 +40,7 @@ class LightningModel(pl.LightningModule):
         self.shuffle = shuffle
         self.channels = channels
         self.step = step
-        self.criterion = sigmoid_focal_loss if masks else maskedL1loss
+        self.criterion = sigmoid_focal_loss if masks else F.mse_loss  # maskedL1loss
         self.thresh = thresh
         self.save_hyperparameters(ignore=['base_model'])
 
@@ -53,8 +53,8 @@ class LightningModel(pl.LightningModule):
             optimizer,
             mode="min",
             factor=0.1,
-            patience=3,
-            threshold=0.01,
+            threshold_mode="abs",
+            patience=5,
             verbose=True)
         lr_scheduler_config = {
             "scheduler": lr_scheduler,
@@ -71,9 +71,9 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         if self.masks:
-            loss = self.criterion(outputs, labels, reduction='mean', alpha=0.85)
+            loss = self.criterion(outputs, labels, reduction='mean', alpha=0.032, gamma=2)
         else:
-            loss = self.criterion(outputs, labels, inputs)
+            loss = self.criterion(outputs, labels, reduction="mean")
 
         self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
@@ -97,7 +97,7 @@ class LightningModel(pl.LightningModule):
         #    self.log('R', recall, prog_bar=True, logger=True, sync_dist=False)
         #    self.log('B', brier, prog_bar=True, logger=True, sync_dist=False)
 
-        if (self.current_epoch + 1) % 5 == 0 and batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
+        if batch_idx in [1, 2, 3, 4, 5]:  # check some random batches
             self.save_outputs(outputs, inputs, labels, 'training', batch_idx)
         return {"loss": loss}
 
@@ -105,50 +105,39 @@ class LightningModel(pl.LightningModule):
         inputs, labels = batch
         outputs = self(inputs)
         if self.masks:
-            val_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.85)
+            val_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.032, gamma=2)
         else:
-            val_loss = self.criterion(outputs, labels, inputs)
+            val_loss = self.criterion(outputs, labels, reduction="mean")
         self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
 
         # Monitor metrics in training, disable for speedup
-        if self.masks:
-            output = outputs.detach().cpu()
-            label = labels.detach().cpu()
+        #if self.masks:
+        #    output = outputs.detach().cpu()
+        #    label = labels.detach().cpu()
 
-            brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
-            # Threshold the FG prob
-            output[:, 0] = output[:, 0] > self.thresh
-            output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
-            dc = dice(output.int(), label.int(), average=None, num_classes=2)
-            precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
-            recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+        #    brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
+        #    # Threshold the FG prob
+        #    output[:, 0] = output[:, 0] > self.thresh
+        #    output[:, 1] = 1 - output[:, 0]
+        #    iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
+        #    dc = dice(output.int(), label.int(), average=None, num_classes=2)
+        #    precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+        #    recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
 
-            self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        #    self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
-        if torch.rand(1) > 0.7:  # check some batches
-            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+        #if torch.rand(1) > 0.7:  # check some batches
+        #    self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def on_validation_end(self):
-        if (self.current_epoch + 1) == 25 and not self.masks:
+        if not self.masks and (self.current_epoch + 1) >= 20:
             # Allow skip connections
             self.model.pretrain_bn = False
-            # Freeze the encoder
-            # for param in self.model.Conv1.parameters():
-            #     param.requires_grad = False
-            # for param in self.model.Conv2.parameters():
-            #     param.requires_grad = False
-            # for param in self.model.Conv3.parameters():
-            #     param.requires_grad = False
-            # for param in self.model.Conv4.parameters():
-            #     param.requires_grad = False
-            # for param in self.model.Conv5.parameters():
-            #     param.requires_grad = False
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
@@ -169,7 +158,7 @@ class LightningModel(pl.LightningModule):
                 title = "Segmentation"
                 prob_diff = "Probability Map"
                 subdir = "masks"
-                thresh_pred = np.ma.masked_where(pred_image < 0.2, pred_image)
+                thresh_pred = np.ma.masked_where(pred_image < self.thresh, pred_image)
                 ax[i, 2].imshow(input_image, cmap=cmap)
                 ax[i, 2].imshow(thresh_pred, cmap='Reds', interpolation=None, alpha=0.7)
                 ax[i, 3].imshow(pred_image, cmap=cmap)
@@ -195,23 +184,32 @@ class LightningModel(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
         outputs = self(inputs)
-        test_loss = self.criterion(outputs, labels, reduction='mean')
+        test_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.032, gamma=2)
+
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
 
-        self.test_outputs.append(output[0].flatten())  # select the first channel
-        self.test_labels.append(label[0].flatten())
+        brier = brier_score_loss(label[:, 0].flatten().int(), output[:, 0].flatten())
+        # Threshold the FG prob
+        output[:, 0] = output[:, 0] > self.thresh
+        output[:, 1] = 1 - output[:, 0]
+        iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
+        dc = dice(output.int(), label.int(), average=None, num_classes=2)
+        precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+        recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
 
-        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True, logger=True)
-        self.save_outputs(outputs, inputs, labels, 'test', batch_idx)
+        self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log('Brier', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+        self.log('test_loss', test_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
         return {'loss': test_loss, 'pred': outputs, 'label': labels}
 
-    def test_epoch_end(self):
-        auc = roc_auc_score(self.test_labels, self.test_outputs, average=None)
-        self.log('auc', auc, on_epoch=True, prog_bar=True, logger=True)
-        RocCurveDisplay.from_predictions(self.test_labels, self.test_outputs)
-        plt.savefig(f"outputs/figures/{os.environ['SLURM_JOB_ID']}.png", dpi=300)
 
     def train_dataloader(self):
         return data_utils.load_data(
@@ -271,3 +269,14 @@ class LightningModel(pl.LightningModule):
 
         if is_changed:
             checkpoint.pop("optimizer_states", None)
+
+
+def reset_all_weights(model):
+    @torch.no_grad()
+    def weight_reset(m):
+        # - check if the current module has reset_parameters & if it's callabed called it on m
+        reset_parameters = getattr(m, "reset_parameters", None)
+        if callable(reset_parameters):
+            m.reset_parameters()
+    # Apply recursively
+    model.apply(fn=weight_reset)

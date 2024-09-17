@@ -6,7 +6,7 @@ import torch
 from torchvision.models.segmentation import fcn_resnet50
 
 from backbones import ResNet_backbone, ResUNet, AttentionUNet
-from lightningmodel import LightningModel
+from lightningmodel import LightningModel, reset_all_weights
 
 
 def main(hp, *args):
@@ -17,10 +17,12 @@ def main(hp, *args):
         os.makedirs(f"../scratch/outputs/figures/training/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
         os.makedirs(f"../scratch/outputs/figures/validation/frames/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
 
-    early_stop_callback = pl.callbacks.early_stopping.EarlyStopping(monitor="train_loss",
+    early_stop_callback = pl.callbacks.early_stopping.EarlyStopping(monitor="train_loss_epoch",
+                                                                    min_delta=0,
                                                                     mode="min",
                                                                     patience=10,
                                                                     strict=False)
+
     checkpoint_callback = pl.callbacks.ModelCheckpoint(monitor="val_loss",
                                                        save_weights_only=True,
                                                        save_top_k=2,
@@ -30,12 +32,12 @@ def main(hp, *args):
         devices=hp.devices,
         accelerator=hp.accelerator,
         num_nodes=hp.num_nodes,
-        max_epochs=80,
+        max_epochs=100,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
-        check_val_every_n_epoch=5,
+        check_val_every_n_epoch=1,
         logger=True,
-        log_every_n_steps=5,
+        log_every_n_steps=50,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
         default_root_dir="../scratch/outputs/",
@@ -89,23 +91,6 @@ def main(hp, *args):
             print("model not specified. Exiting...")
             exit(1)
 
-    if hp.backbone in ["resunet", "attention"]:
-        if hp.freeze > 0:
-            for param in model.Conv1.parameters():
-                param.requires_grad = False
-        if hp.freeze > 1:
-            for param in model.Conv2.parameters():
-                param.requires_grad = False
-        if hp.freeze > 2:
-            for param in model.Conv3.parameters():
-                param.requires_grad = False
-        if hp.freeze > 3:
-            for param in model.Conv4.parameters():
-                param.requires_grad = False
-        if hp.freeze > 4:
-            for param in model.Conv5.parameters():
-                param.requires_grad = False
-
     if hp.checkpoint:
         model = LightningModel.load_from_checkpoint(
             hp.checkpoint,
@@ -135,17 +120,36 @@ def main(hp, *args):
             step=hp.step,
             channels=channels)
 
-    if hp.testing:
-        trainer.test(model)
-    else:
-        trainer.fit(model)
+    if hp.backbone in ["resunet", "attention"]:
+        if hp.masks:
+            for i, child in enumerate(model.children()):
+                if i > 5:  # reset the decoder if training segmentation
+                    child.apply(fn=reset_all_weights)
+        if hp.freeze > 0:
+            for param in model.model.Conv1.parameters():
+                param.requires_grad = False
+        if hp.freeze > 1:
+            for param in model.model.Conv2.parameters():
+                param.requires_grad = False
+        if hp.freeze > 2:
+            for param in model.model.Conv3.parameters():
+                param.requires_grad = False
+        if hp.freeze > 3:
+            for param in model.model.Conv4.parameters():
+                param.requires_grad = False
+        if hp.freeze > 4:
+            for param in model.model.Conv5.parameters():
+                param.requires_grad = False
+
+    trainer.fit(model)
+
+    trainer.test(model, ckpt_path="best")
 
     exit(0)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #parser = pl.Trainer.add_argparse_args(parser)
     parser.add_argument("--train_path", default="data", type=str)
     parser.add_argument("--valid_path", default="data/test", type=str)
     parser.add_argument("--test_path", default=None, type=str)
