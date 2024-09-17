@@ -128,11 +128,12 @@ class InputSequence(Dataset):
 
     def transform(self, *args):
         images = []
+        norm = T.Normalize(mean=0.505, std=0.145)
         if not self.aug:
-            totensor = T.ToTensor()
             resize = T.Resize(size=self.image_shape, antialias=True)
             for image in args:
-                temp = totensor(image)
+                temp = TF.to_tensor(image)
+                temp = norm(temp)
                 images.append(resize(temp)[0])
             return images
 
@@ -141,13 +142,11 @@ class InputSequence(Dataset):
         i, j, h, w = T.RandomResizedCrop(size=self.image_shape, antialias=True).get_params(
             TF.to_tensor(args[0]), scale=[0.5, 1.0], ratio=[0.75, 1.25])
 
-        #_, rand_b, rand_c, _, _ = T.ColorJitter.get_params([0.99, 1.01], [0.98, 1.02], None, None)
-        #rand_jitter = T.ColorJitter(rand_b, rand_c)
-
         d = T.RandomRotation.get_params(degrees=[-30, 30])
         for image in args:
             # Transform to tensor
             image = TF.to_tensor(image)
+            image = norm(image)
             # Random crop
             image = TF.crop(image, i, j, h, w)
             # Random horizontal flip
