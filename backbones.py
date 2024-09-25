@@ -322,7 +322,7 @@ class AttentionUNet(nn.Module):
 
         out = self.Conv(d2)
 
-        if self.masks:
-            out = torch.softmax(out, dim=1)
+        #if self.masks:
+        #    out = torch.softmax(out, dim=1)
 
         return out
