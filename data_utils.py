@@ -133,7 +133,7 @@ class InputSequence(Dataset):
             resize = T.Resize(size=self.image_shape, antialias=True)
             for image in args:
                 temp = TF.to_tensor(image)
-                temp = norm(temp)
+                #temp = norm(temp)
                 images.append(resize(temp)[0])
             return images
 
@@ -146,7 +146,7 @@ class InputSequence(Dataset):
         for image in args:
             # Transform to tensor
             image = TF.to_tensor(image)
-            image = norm(image)
+            #image = norm(image)
             # Random crop
             image = TF.crop(image, i, j, h, w)
             # Random horizontal flip
