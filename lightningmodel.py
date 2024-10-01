@@ -15,7 +15,7 @@ import data_utils
 def maskedL1loss(output, target, inputs, reduction='mean'):
     mask = torch.abs(target - inputs[-1]) > 0.085
     loss = F.l1_loss(output, target, reduction='none')
-    loss = (mask * 10 + 1) * loss
+    loss = (mask + 1) * loss
 
     if reduction == "mean":
         return loss.mean()
@@ -134,13 +134,13 @@ class LightningModel(pl.LightningModule):
             self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         """
-        if torch.rand(1) > 0.7:  # check some batches
+        if self.masks:  # check some batches
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def on_validation_end(self):
         if not self.masks and (self.current_epoch + 1) >= 20:
             # Allow skip connections
-            self.model.pretrain_bn = False
+            self.model.skip_connection_gradients(require_grad=True)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
@@ -175,7 +175,7 @@ class LightningModel(pl.LightningModule):
                 pred_image = pred_image.numpy()[0]
                 diff = (gt_image - pred_image)
                 ax[i, 2].imshow(pred_image, cmap=cmap)
-                ax[i, 3].imshow(diff, cmap=cmap)
+                ax[i, 3].imshow(diff[0], cmap=cmap)
 
             gt_image = gt_image.numpy()[0]
             ax[i, 1].imshow(gt_image, cmap=cmap)

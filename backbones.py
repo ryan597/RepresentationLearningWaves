@@ -143,9 +143,8 @@ class UpConv(nn.Module):
 
 
 class ResUNet(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1, masks=False, pretrain_bn=False):
+    def __init__(self, img_ch=3, output_ch=1, pretrain_bn=False):
         super().__init__()
-        self.masks = masks
         self.pretrain_bn = pretrain_bn
 
         self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
@@ -185,33 +184,29 @@ class ResUNet(nn.Module):
         e5 = self.MaxPool(e4)
         e5 = self.Conv5(e5)
 
-        if self.pretrain_bn:  # create a bottleneck for pretraining task to prevent "copy pasting" images
-            e4 = e4 * 0
-            e3 = e3 * 0
-            e2 = e2 * 0
-            e1 = e1 * 0
+        if self.pretrain_bn:
+            skip4 = e4 * 0
+            skip3 = e3 * 0
+            skip2 = e2 * 0
+            skip1 = e1 * 0
 
         d5 = self.Up5(e5)
-        d5 = torch.cat((e4, d5), dim=1)
+        d5 = torch.cat((skip4, d5), dim=1)
         d5 = self.UpConv5(d5)
 
         d4 = self.Up4(d5)
-        d4 = torch.cat((e3, d4), dim=1)
+        d4 = torch.cat((skip3, d4), dim=1)
         d4 = self.UpConv4(d4)
 
         d3 = self.Up3(d4)
-        d3 = torch.cat((e2, d3), dim=1)
+        d3 = torch.cat((skip2, d3), dim=1)
         d3 = self.UpConv3(d3)
 
         d2 = self.Up2(d3)
-        d2 = torch.cat((e1, d2), dim=1)
+        d2 = torch.cat((skip1, d2), dim=1)
         d2 = self.UpConv2(d2)
 
         out = self.Conv(d2)
-
-        if self.masks:
-            out = torch.softmax(out, dim=1)
-
         return out
 
 
@@ -247,11 +242,8 @@ class AttentionBlock(nn.Module):
 
 
 class AttentionUNet(nn.Module):
-    def __init__(self, img_ch=3, output_ch=1, masks=False, pretrain_bn=False):
+    def __init__(self, img_ch=3, output_ch=1, pretrain_bn=False):
         super().__init__()
-        self.masks = masks
-        self.pretrain_bn = pretrain_bn
-
         self.MaxPool = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
 
         self.Conv1 = ConvBlock(img_ch, 64)
@@ -278,6 +270,19 @@ class AttentionUNet(nn.Module):
 
         self.Conv = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
 
+        if pretrain_bn:
+            self.skip_connection_gradients(require_grad=False)
+
+    def skip_connection_gradients(self, require_grad):
+        for param in self.Att5.W_x.parameters():
+            param.requires_grad = require_grad
+        for param in self.Att4.W_x.parameters():
+            param.requires_grad = require_grad
+        for param in self.Att3.W_x.parameters():
+            param.requires_grad = require_grad
+        for param in self.Att2.W_x.parameters():
+            param.requires_grad = require_grad
+
     def forward(self, x):
         e1 = self.Conv1(x)
 
@@ -292,12 +297,6 @@ class AttentionUNet(nn.Module):
 
         e5 = self.MaxPool(e4)
         e5 = self.Conv5(e5)
-
-        if self.pretrain_bn:  # create a bottleneck for pretraining task to prevent "copy pasting" images
-            e4 = e4 * 0
-            e3 = e3 * 0
-            e2 = e2 * 0
-            e1 = e1 * 0
 
         d5 = self.Up5(e5)
 
@@ -321,8 +320,4 @@ class AttentionUNet(nn.Module):
         d2 = self.UpConv2(d2)
 
         out = self.Conv(d2)
-
-        #if self.masks:
-        #    out = torch.softmax(out, dim=1)
-
         return out
