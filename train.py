@@ -10,6 +10,8 @@ from lightningmodel import LightningModel, reset_all_weights
 
 
 def main(hp, *args):
+    torch.set_float32_matmul_precision('medium')
+
     if hp.masks:
         os.makedirs(f"../scratch/outputs/figures/training/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
         os.makedirs(f"../scratch/outputs/figures/validation/masks/{os.environ['SLURM_JOB_ID']}", exist_ok=True)
@@ -32,12 +34,13 @@ def main(hp, *args):
         devices=hp.devices,
         accelerator=hp.accelerator,
         num_nodes=hp.num_nodes,
-        max_epochs=100,
+        max_epochs=250,
+        accumulate_grad_batches=2,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
-        check_val_every_n_epoch=1,
+        check_val_every_n_epoch=10,
         logger=True,
-        log_every_n_steps=50,
+        log_every_n_steps=20,
         num_sanity_val_steps=0,
         gradient_clip_val=0.5,
         default_root_dir="../scratch/outputs/",
@@ -77,14 +80,12 @@ def main(hp, *args):
             channels = 1
             model = ResUNet(hp.seq_length - 1,
                             1 + hp.masks,
-                            masks=hp.masks,
                             pretrain_bn=not hp.masks)
 
         case "attention":
             channels = 1
             model = AttentionUNet(hp.seq_length - 1,
                                   1 + hp.masks,
-                                  masks=hp.masks,
                                   pretrain_bn=not hp.masks)
 
         case _:  # default cases
@@ -141,9 +142,11 @@ def main(hp, *args):
             for param in model.model.Conv5.parameters():
                 param.requires_grad = False
 
-    trainer.fit(model)
-
-    trainer.test(model, ckpt_path="best")
+    if not hp.testing:
+        trainer.fit(model)
+        trainer.test(model, ckpt_path="best")
+    else:
+        trainer.test(model, ckpt_path=hp.checkpoint)
 
     exit(0)
 

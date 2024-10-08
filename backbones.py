@@ -169,6 +169,9 @@ class ResUNet(nn.Module):
 
         self.Conv = nn.Conv2d(64, output_ch, kernel_size=1, stride=1, padding=0)
 
+    def skip_connection_gradients(self, require_grad):
+        self.pretrain_bn = not require_grad
+
     def forward(self, x):
         e1 = self.Conv1(x)
 
@@ -185,25 +188,24 @@ class ResUNet(nn.Module):
         e5 = self.Conv5(e5)
 
         if self.pretrain_bn:
-            skip4 = e4 * 0
-            skip3 = e3 * 0
-            skip2 = e2 * 0
-            skip1 = e1 * 0
+            skip = 0
+        else:
+            skip = 1
 
         d5 = self.Up5(e5)
-        d5 = torch.cat((skip4, d5), dim=1)
+        d5 = torch.cat((skip * e4, d5), dim=1)
         d5 = self.UpConv5(d5)
 
         d4 = self.Up4(d5)
-        d4 = torch.cat((skip3, d4), dim=1)
+        d4 = torch.cat((skip * e3, d4), dim=1)
         d4 = self.UpConv4(d4)
 
         d3 = self.Up3(d4)
-        d3 = torch.cat((skip2, d3), dim=1)
+        d3 = torch.cat((skip * e2, d3), dim=1)
         d3 = self.UpConv3(d3)
 
         d2 = self.Up2(d3)
-        d2 = torch.cat((skip1, d2), dim=1)
+        d2 = torch.cat((skip * e1, d2), dim=1)
         d2 = self.UpConv2(d2)
 
         out = self.Conv(d2)

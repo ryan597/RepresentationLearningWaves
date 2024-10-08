@@ -15,8 +15,8 @@ NODES=1
 
 TRAIN_PATH="../scratch/"
 VALID_PATH="../scratch/test"
-SIZE=512
-BATCH_SIZE=10
+SIZE=256
+BATCH_SIZE=16
 MASKS=True
 LR=0.001
 
