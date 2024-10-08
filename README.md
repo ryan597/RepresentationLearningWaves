@@ -8,19 +8,15 @@ Repository for code to reproduce the results of the pre-print Representation Lea
 
 [Representation Learning of breaking waves](#representation-learning-of-breaking-waves)
 
-- [1. Environment](#1-environment)
-- [2. Data](#2-data)
-    - [2.1. Sources](#21-sources)
-    - [2.2. Folder Structure](#22-folder-structure)
-- [3. Models](#3-models)
-- [4. Training](#4-training)
-- [5. Evaluation](#5-evaluation)
-    - [5.1. Evaluating](#51-evaluating)
-    - [5.2. Results](#52-results)
+- [Environment](#environment)
+- [Data](#data)
+    - [Sources](#sources)
+    - [Folder Structure](#folder-structure)
+- [Training](#training)
 
 ---
 
-## 1. Environment
+## Environment
 
 Creating a virtual environment to install the dependencies packages is recommended, this can be done with either conda or the python3 venv.
 
@@ -53,11 +49,11 @@ pip freeze >> requirements.txt
 
 ---
 
-## 2. Data
+## Data
 
-### 2.1. Sources
+### Sources
 
-### 2.2. Folder Structure
+### Folder Structure
 
 <details>
   <summary>data</summary>
@@ -86,11 +82,7 @@ pip freeze >> requirements.txt
 
 ---
 
-## 3. Models
-
----
-
-## 4. Training
+## Training
 
 To train models using the python script `train.py` you can use or modify the SLURM submission script `train.sh`, or extract the command inside the file and run it directly from the terminal.
 
@@ -142,14 +134,6 @@ srun python3 train.py --train_path $TRAIN_PATH --valid_path $VALID_PATH --test_p
     --no-masks --step $STEP --seq_length $SEQ_LENGTH --freeze $FREEZE --size $SIZE --backbone $BACKBONE \
     --lr $LR --layers $LAYERS --accelerator $ACCELERATOR --devices $DEVICES --num_nodes $NODES #--checkpoint $CHECKPOINT
 ```
-
----
-
-## 5. Evaluation
-
-### 5.1. Evaluating
-
-### 5.2. Results
 
 ---
 
