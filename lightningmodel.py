@@ -207,27 +207,24 @@ class LightningModel(pl.LightningModule):
             #test_loss = self.criterion(outputs, labels, inputs, reduction="mean")
 
         output = outputs.detach().cpu()
-        label = labels.detach().cpu()
-
-        torch.set_printoptions(threshold=1000)
-        print("LABEL:  ", label, label.max(), label.min())
+        label = labels.detach().cpu().int()
 
         output_probs = torch.softmax(output.float(), dim=1)
         if self.masks:
-            brier = brier_score_loss(label[:, 0].flatten().int(), output_probs[:, 0].flatten())
+            brier = brier_score_loss(label[:, 0].flatten(), output_probs[:, 0].flatten())
             # Threshold the FG prob
             #output[:, 0] = output_probs[:, 0] > self.thresh
             #output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output_probs, label.int(), average=None, task='binary', num_classes=2, threshold=0.5)
-            dc = dice(output_probs, label.int(), average=None, num_classes=2, threshold=0.5)
+            iou = jaccard_index(output_probs[:, 0], label.int()[:, 0], average=None, task='binary', num_classes=1, threshold=0.5)
+            dc = dice(output_probs[:, 0].flatten(), label[:, 0].flatten(), average=None, num_classes=1, threshold=0.5)
             #precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
             #recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
-            P = precision(output_probs, label, task='binary', average=None, threshold=0.5)
-            R = recall(output_probs, label, task='binary', average=None, threshold=0.5)
+            P = precision(output_probs[:, 0], label[:, 0], task='binary', average=None, threshold=0.5)
+            R = recall(output_probs[:, 0], label[:, 0], task='binary', average=None, threshold=0.5)
 
             self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            #self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('P', P, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('R', R, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('Brier', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)

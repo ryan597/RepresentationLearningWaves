@@ -130,7 +130,7 @@ class InputSequence(Dataset):
         images = []
         norm = T.Normalize(mean=0.505, std=0.145)
         if not self.aug:
-            resize = T.Resize(size=self.image_shape, antialias=True)
+            resize = T.Resize(size=self.image_shape, antialias=False, interpolation=T.InterpolationMode.NEAREST)
             for image in args:
                 temp = TF.to_tensor(image)
                 #temp = norm(temp)
@@ -139,7 +139,7 @@ class InputSequence(Dataset):
 
         hflip = random.random()
         vflip = random.random()
-        i, j, h, w = T.RandomResizedCrop(size=self.image_shape, antialias=True).get_params(
+        i, j, h, w = T.RandomResizedCrop(size=self.image_shape, antialias=False).get_params(
             TF.to_tensor(args[0]), scale=[0.5, 1.0], ratio=[0.75, 1.25])
 
         d = T.RandomRotation.get_params(degrees=[-30, 30])
@@ -160,7 +160,7 @@ class InputSequence(Dataset):
             # Random Jitter
             #image = rand_jitter.forward(image)
             # Resize
-            resize = T.Resize(size=self.image_shape, antialias=True)
+            resize = T.Resize(size=self.image_shape, antialias=False, interpolation=T.InterpolationMode.NEAREST)
             image = resize(image)
             images.append(image[0])  # tensors have been formated to [1, x, y]
         return images
