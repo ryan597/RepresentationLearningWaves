@@ -34,7 +34,7 @@ def main(hp, *args):
         devices=hp.devices,
         accelerator=hp.accelerator,
         num_nodes=hp.num_nodes,
-        max_epochs=250,
+        max_epochs=100,
         accumulate_grad_batches=2,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
@@ -56,10 +56,10 @@ def main(hp, *args):
         # BASELINE MODEL : 1 input image, no pretraining
         case "baseline":
             channels = 3
-            model = fcn_resnet50(pretrained=False,
+            model = fcn_resnet50(weights=None,
                                  num_classes=2,
-                                 pretrained_backbone=False)
-            state_dict = torch.load("weights/fcn_resnet50_coco-1167a1af.pth")
+                                 weights_backbone=None)
+            state_dict = torch.load("weights/fcn_resnet50_coco-1167a1af.pth") # load weights with no internet on cluster
             # Pretrained classifier expects 21 classes,
             # remove and ignore missing keys
             for key in list(state_dict.keys()):

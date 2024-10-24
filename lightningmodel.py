@@ -6,21 +6,17 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch
 from torchvision.ops import sigmoid_focal_loss
-from torchmetrics.functional import dice, jaccard_index
-from sklearn.metrics import precision_score, recall_score, brier_score_loss
+from torchmetrics.functional import dice, jaccard_index, precision, recall
+from sklearn.metrics import brier_score_loss
 
 import data_utils
 
 
 def maskedL1loss(output, target, inputs, reduction='mean'):
-    mask = torch.abs(target - inputs[-1]) > 0.085
-    loss = F.l1_loss(output, target, reduction='none')
-    loss = (mask + 1) * loss
-
-    if reduction == "mean":
-        return loss.mean()
-    elif reduction == "sum":
-        return loss.sum()
+    last_input = inputs[:, -1].reshape(inputs.shape[0], 1, inputs.shape[2], inputs.shape[3])
+    motion_mask = torch.abs(target - last_input) > 0.02
+    mask = motion_mask.bool()
+    loss = F.l1_loss(output[mask], target[mask], reduction=reduction)
     return loss
 
 
@@ -40,7 +36,7 @@ class LightningModel(pl.LightningModule):
         self.shuffle = shuffle
         self.channels = channels
         self.step = step
-        self.criterion = sigmoid_focal_loss if masks else F.mse_loss  # maskedL1loss
+        self.criterion = sigmoid_focal_loss if masks else F.mse_loss
         self.thresh = thresh
         self.save_hyperparameters(ignore=['base_model'])
 
@@ -74,8 +70,9 @@ class LightningModel(pl.LightningModule):
             loss = self.criterion(outputs, labels, reduction='mean', alpha=0.25, gamma=2)
         else:
             loss = self.criterion(outputs, labels, reduction="mean")
+            #loss = self.criterion(outputs, labels, inputs, reduction="mean")
 
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True, logger=True)
         """
         # Debug metrics on training
          if self.masks and self.current_epoch % 5 == 0:
@@ -108,8 +105,10 @@ class LightningModel(pl.LightningModule):
         if self.masks:
             val_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.25, gamma=2)
         else:
-            val_loss = self.criterion(outputs, labels, reduction='mean')
-        self.log('val_loss', val_loss, on_epoch=True, sync_dist=True, prog_bar=True, logger=True)
+            val_loss = self.criterion(outputs, labels, reduction="mean")
+            #val_loss = self.criterion(outputs, labels, inputs, reduction="mean")
+
+        self.log('val_loss', val_loss, on_epoch=True, prog_bar=True, logger=True)
 
         """
         # Debug metrics on validation
@@ -134,11 +133,11 @@ class LightningModel(pl.LightningModule):
             self.log('val_R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('val_B', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
         """
-        if self.masks:  # check some batches
-            self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
+        #if self.masks:  # check some batches
+        #    self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
     def on_validation_end(self):
-        if not self.masks and (self.current_epoch + 1) >= 20:
+        if not self.masks and (self.current_epoch + 1) == 20:
             # Allow skip connections
             self.model.skip_connection_gradients(require_grad=True)
 
@@ -171,7 +170,8 @@ class LightningModel(pl.LightningModule):
                 title = "Frame Prediciton"
                 prob_diff = "Difference"
                 subdir = "frames"
-                loss = self.criterion(pred_image, gt_image, reduction='mean')
+                loss = self.criterion(outputs, labels, reduction="mean")
+                #loss = self.criterion(outputs, labels, inputs, reduction="mean")
                 pred_image = pred_image.numpy()[0]
                 diff = (gt_image - pred_image)
                 ax[i, 2].imshow(pred_image, cmap=cmap)
@@ -198,31 +198,38 @@ class LightningModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         inputs, labels = batch
+
         outputs = self(inputs)
         if self.masks:
             test_loss = self.criterion(outputs, labels, reduction='mean', alpha=0.25, gamma=2)
         else:
             test_loss = self.criterion(outputs, labels, reduction="mean")
+            #test_loss = self.criterion(outputs, labels, inputs, reduction="mean")
 
         output = outputs.detach().cpu()
         label = labels.detach().cpu()
+
+        torch.set_printoptions(threshold=1000)
+        print("LABEL:  ", label, label.max(), label.min())
 
         output_probs = torch.softmax(output.float(), dim=1)
         if self.masks:
             brier = brier_score_loss(label[:, 0].flatten().int(), output_probs[:, 0].flatten())
             # Threshold the FG prob
-            output[:, 0] = output_probs[:, 0] > self.thresh
-            output[:, 1] = 1 - output[:, 0]
-            iou = jaccard_index(output.int(), label.int(), task='binary', average=None, num_classes=2)
-            dc = dice(output.int(), label.int(), average=None, num_classes=2)
-            precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
-            recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+            #output[:, 0] = output_probs[:, 0] > self.thresh
+            #output[:, 1] = 1 - output[:, 0]
+            iou = jaccard_index(output_probs, label.int(), average=None, task='binary', num_classes=2, threshold=0.5)
+            dc = dice(output_probs, label.int(), average=None, num_classes=2, threshold=0.5)
+            #precision = precision_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+            #recall = recall_score(label[:, 0].flatten().int(), output[:, 0].flatten().int(), zero_division=0)
+            P = precision(output_probs, label, task='binary', average=None, threshold=0.5)
+            R = recall(output_probs, label, task='binary', average=None, threshold=0.5)
 
             self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('P', precision, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('R', recall, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('P', P, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('R', R, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('Brier', brier, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
             self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
