@@ -136,10 +136,10 @@ class LightningModel(pl.LightningModule):
         #if self.masks:  # check some batches
         #    self.save_outputs(outputs, inputs, labels, 'validation', batch_idx)
 
-    def on_validation_end(self):
-        if not self.masks and (self.current_epoch + 1) == 20:
-            # Allow skip connections
-            self.model.skip_connection_gradients(require_grad=True)
+    #def on_validation_end(self):
+        #if not self.masks and (self.current_epoch + 1) == 20:
+        #    # Allow skip connections
+        #    self.model.skip_connection_gradients(require_grad=True)
 
     def save_outputs(self, outputs, inputs, labels, loc, batch_idx):
         fig, ax = plt.subplots(5,  # give 5 outputs | rows
@@ -223,7 +223,7 @@ class LightningModel(pl.LightningModule):
             R = recall(output_probs[:, 0], label[:, 0], task='binary', average=None, threshold=0.5)
 
             self.log('IoU', iou, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
-            self.log('Dice', dc[0], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+            self.log('Dice', dc, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             #self.log('Dice_bg', dc[1], on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('P', P, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
             self.log('R', R, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)

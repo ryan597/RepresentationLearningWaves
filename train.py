@@ -34,7 +34,7 @@ def main(hp, *args):
         devices=hp.devices,
         accelerator=hp.accelerator,
         num_nodes=hp.num_nodes,
-        max_epochs=100,
+        max_epochs=80,
         accumulate_grad_batches=2,
         strategy=pl.strategies.DDPStrategy(find_unused_parameters=False),
         enable_checkpointing=True,
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_path", default=None, type=str)
     parser.add_argument("--batch_size", default=5, type=int)
     parser.add_argument('--masks', default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--checkpoint", default="", type=str)
+    parser.add_argument("--checkpoint", default="", nargs='?', type=str)
     parser.add_argument("--backbone", default="resunet", type=str)
     parser.add_argument("--step", default=1, type=int)
     parser.add_argument("--seq_length", default=2, type=int)

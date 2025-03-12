@@ -26,7 +26,7 @@ SEQ_LENGTH=$3
 FREEZE=$4
 LAYERS=50
 CHECKPOINT=$5
-LOSS="L1"
+LOSS="L2"
 
 echo step: $STEP
 echo seq_length: $SEQ_LENGTH
